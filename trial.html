@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Codex Map — Visual Commit Navigator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=JetBrains+Mono:wght@300;400;600&display=swap');
+
+:root {
+  --void: #060810;
+  --deep: #0c111f;
+  --surface: #111827;
+  --card: #161d2e;
+  --border: #1e2d45;
+  --text: #dde4f0;
+  --muted: #4a5568;
+  --dim: #2a3550;
+
+  --cyan: #00e5ff;
+  --cyan-dim: rgba(0,229,255,0.12);
+  --green: #00ff9d;
+  --green-dim: rgba(0,255,157,0.1);
+  --amber: #ffc940;
+  --amber-dim: rgba(255,201,64,0.1);
+  --rose: #ff4d7d;
+  --rose-dim: rgba(255,77,125,0.1);
+  --violet: #c084fc;
+  --violet-dim: rgba(192,132,252,0.1);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--void);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  height: 100vh;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 48px 1fr;
+  grid-template-columns: 1fr 320px;
+  grid-template-areas: "topbar topbar" "canvas sidebar";
+  cursor: default;
+  user-select: none;
+}
+
+/* TOPBAR */
+#topbar {
+  grid-area: topbar;
+  background: var(--deep);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 24px;
+  position: relative;
+  z-index: 10;
+}
+.logo {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+  color: var(--cyan);
+}
+.logo span { color: var(--text); opacity: 0.5; }
+.topbar-sep { width: 1px; height: 24px; background: var(--border); }
+.repo-tag {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex; align-items: center; gap: 6px;
+}
+.repo-tag strong { color: var(--text); }
+.dot { width:6px; height:6px; border-radius:50%; }
+.dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+.dot-amber { background: var(--amber); }
+.dot-rose { background: var(--rose); }
+.role-badge {
+  margin-left: auto;
+  background: var(--violet-dim);
+  border: 1px solid rgba(192,132,252,0.3);
+  color: var(--violet);
+  font-size: 10px;
+  padding: 3px 10px;
+  border-radius: 3px;
+  letter-spacing: 0.08em;
+}
+.btn-sm {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 5px 12px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: opacity 0.2s, transform 0.2s, border-color 0.2s;
+}
+.btn-primary { background: var(--cyan); color: #000; font-weight: 600; }
+.btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+.btn-sm:hover:not(:disabled) { transform: translateY(-1px); }
+.btn-sm:disabled { opacity: 0.45; cursor: default; transform: none; }
+.btn-sm-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+/* CANVAS */
+#canvas-area {
+  grid-area: canvas;
+  position: relative;
+  overflow: hidden;
+  background: var(--void);
+}
+
+canvas { position: absolute; top: 0; left: 0; }
+
+/* Overlay legend */
+.legend {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  display: flex;
+  gap: 16px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* Info tooltip */
+#tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 11px;
+  min-width: 180px;
+  display: none;
+  z-index: 20;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+#tooltip .tt-hash { color: var(--cyan); font-size: 10px; margin-bottom: 4px; }
+#tooltip .tt-msg { color: var(--text); margin-bottom: 6px; line-height: 1.4; }
+#tooltip .tt-meta { color: var(--muted); font-size: 10px; }
+
+/* SIDEBAR */
+#sidebar {
+  grid-area: sidebar;
+  background: var(--deep);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sidebar-header {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.sidebar-sub { font-size: 10px; color: var(--muted); }
+
+.sidebar-body { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+.sidebar-body::-webkit-scrollbar { width: 3px; }
+.sidebar-body::-webkit-scrollbar-thumb { background: var(--dim); }
+
+/* Node detail */
+#node-detail { display: none; flex-direction: column; gap: 12px; }
+#node-detail.visible { display: flex; }
+#default-state { color: var(--muted); font-size: 11px; line-height: 1.7; text-align: center; margin: auto 0; padding: 20px 0; }
+
+.detail-hash { color: var(--cyan); font-size: 11px; }
+.detail-msg { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.3; margin: 4px 0 6px; }
+.detail-meta { font-size: 10px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
+.detail-meta span { display: flex; align-items: center; gap: 4px; }
+
+.nav-panel {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.nav-btn {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 8px 10px;
+  transition: border-color 0.2s, transform 0.2s, opacity 0.2s;
+}
+.nav-btn:hover:not(:disabled) {
+  border-color: var(--cyan);
+  transform: translateY(-1px);
+}
+.nav-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.status-line {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+  padding: 10px 12px;
+}
+.status-line.status-success { background: var(--green-dim); border-color: rgba(0,255,157,0.25); color: var(--green); }
+.status-line.status-warn { background: var(--amber-dim); border-color: rgba(255,201,64,0.25); color: var(--amber); }
+.status-line.status-error { background: var(--rose-dim); border-color: rgba(255,77,125,0.25); color: var(--rose); }
+
+.context-card {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.context-title {
+  font-size: 10px;
+  color: var(--cyan);
+}
+.context-snippet {
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.context-empty {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.analysis-card {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.analysis-title {
+  color: var(--text);
+  font-size: 10px;
+}
+.analysis-meta {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.divider { height: 1px; background: var(--border); }
+
+/* Codex proposals */
+.proposals-label {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.codex-loading { color: var(--muted); font-size: 11px; display: flex; align-items: center; gap: 8px; }
+.spin { animation: spin 1s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.proposal {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: inherit;
+  display: block;
+  font: inherit;
+  padding: 12px 14px;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.proposal::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px;
+  height: 100%;
+}
+.proposal.type-feat::before { background: var(--cyan); }
+.proposal.type-fix::before { background: var(--rose); }
+.proposal.type-refactor::before { background: var(--violet); }
+.proposal.type-test::before { background: var(--green); }
+.proposal.type-docs::before { background: var(--amber); }
+.proposal:hover { border-color: var(--cyan); background: rgba(0,229,255,0.04); transform: translateX(2px); }
+.proposal.selected {
+  background: rgba(0,229,255,0.08);
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 1px rgba(0,229,255,0.12);
+}
+
+.proposal-type {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.type-feat .proposal-type { color: var(--cyan); }
+.type-fix .proposal-type { color: var(--rose); }
+.type-refactor .proposal-type { color: var(--violet); }
+.type-test .proposal-type { color: var(--green); }
+.type-docs .proposal-type { color: var(--amber); }
+
+.proposal-title { font-size: 12px; color: var(--text); font-weight: 600; line-height: 1.4; margin-bottom: 6px; font-family: 'Syne', sans-serif; }
+.proposal-desc { font-size: 10px; color: var(--muted); line-height: 1.5; }
+.proposal-risk {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 8px; font-size: 10px;
+}
+.risk-bar { flex: 1; height: 3px; background: var(--dim); border-radius: 2px; overflow: hidden; }
+.risk-fill { height: 100%; border-radius: 2px; }
+.risk-low .risk-fill { background: var(--green); width: 20%; }
+.risk-med .risk-fill { background: var(--amber); width: 55%; }
+.risk-high .risk-fill { background: var(--rose); width: 80%; }
+
+.confirm-btn {
+  width: 100%;
+  background: var(--cyan);
+  color: #000;
+  border: none;
+  padding: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  margin-top: 4px;
+  transition: opacity 0.2s;
+}
+.confirm-btn:hover { opacity: 0.85; }
+.confirm-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Alert */
+.alert {
+  background: var(--amber-dim);
+  border: 1px solid rgba(255,201,64,0.3);
+  border-radius: 5px;
+  padding: 10px 12px;
+  font-size: 10px;
+  color: var(--amber);
+  line-height: 1.5;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes nodeAppear {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div class="logo">CODEX<span>MAP</span></div>
+  <div class="topbar-sep"></div>
+  <div class="repo-tag"><div class="dot dot-green"></div> <strong>acme-org / platform-api</strong> · main</div>
+  <div class="topbar-sep"></div>
+  <div class="repo-tag"><div class="dot dot-amber"></div> <span id="frontier-count">3 frontiers</span></div>
+  <div class="repo-tag"><div class="dot dot-rose"></div> <span id="conflict-count">1 conflict</span></div>
+  <div class="repo-tag"><div class="dot" style="background:var(--violet)"></div> <span id="context-count">0 docs in context</span></div>
+  <div class="repo-tag"><div class="dot" style="background:var(--green)"></div> <span id="architecture-count">0 architecture nodes</span></div>
+  <div class="role-badge">SENIOR ENGINEER</div>
+  <a class="btn-sm btn-ghost btn-sm-link" href="control-center.html">Control Center</a>
+  <a class="btn-sm btn-ghost btn-sm-link" href="architect.html">Architect Studio</a>
+  <a class="btn-sm btn-ghost btn-sm-link" href="context.html">Context Lab</a>
+  <button class="btn-sm btn-ghost" id="sync-btn" type="button">Sync</button>
+  <button class="btn-sm btn-primary" id="branch-btn" type="button">+ Branch</button>
+</div>
+
+<div id="canvas-area">
+  <canvas id="graph"></canvas>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--cyan)"></div> Your commits</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Teammates</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div> Frontier node</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--violet); opacity:0.5"></div> Codex proposals</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--rose)"></div> Conflict / risk</div>
+  </div>
+
+  <div id="tooltip">
+    <div class="tt-hash" id="tt-hash"></div>
+    <div class="tt-msg" id="tt-msg"></div>
+    <div class="tt-meta" id="tt-meta"></div>
+  </div>
+</div>
+
+<div id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-title">Node Inspector</div>
+    <div class="sidebar-sub">Click any node to inspect · Codex analyses frontier</div>
+  </div>
+  <div class="sidebar-body">
+    <div id="default-state">
+      ↖ Click a node on the map<br>to see Codex proposals<br>and navigate your frontier
+    </div>
+    <div id="node-detail">
+      <div>
+        <div class="detail-hash" id="d-hash"></div>
+        <div class="detail-msg" id="d-msg"></div>
+        <div class="detail-meta">
+          <span>👤 <span id="d-author"></span></span>
+          <span>🕐 <span id="d-time"></span></span>
+          <span>📁 <span id="d-files"></span> files</span>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="nav-panel">
+        <button class="nav-btn" id="nav-parent" type="button">← Parent</button>
+        <button class="nav-btn" id="nav-child" type="button">Child →</button>
+        <button class="nav-btn" id="nav-frontier" type="button">Next Frontier</button>
+      </div>
+      <div class="status-line" id="action-status">Select a frontier node to inspect Codex proposals or use the navigation buttons to move across the graph.</div>
+      <div id="alert-zone"></div>
+      <div>
+        <div class="proposals-label">// Codex Proposals</div>
+        <div id="proposals-list"></div>
+      </div>
+      <div>
+        <div class="proposals-label">// Retrieved Context</div>
+        <div id="context-evidence"></div>
+      </div>
+      <div>
+        <div class="proposals-label">// MCP / CLI Analysis</div>
+        <div id="alignment-analysis"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="agent-context.js"></script>
+<script src="solution-architect.js"></script>
+<script src="alignment-runtime.js"></script>
+<script>
+const canvas = document.getElementById('graph');
+const ctx = canvas.getContext('2d');
+const tooltip = document.getElementById('tooltip');
+const defaultState = document.getElementById('default-state');
+const nodeDetail = document.getElementById('node-detail');
+const proposalsList = document.getElementById('proposals-list');
+const contextEvidence = document.getElementById('context-evidence');
+const alignmentAnalysis = document.getElementById('alignment-analysis');
+const contextStore = window.CodexContextStore;
+const architectStore = window.CodexSolutionArchitect;
+const alignmentRuntime = window.CodexAlignmentRuntime;
+
+let W, H;
+let selectedNode = null;
+let hoveredNode = null;
+let hoveredGhostNode = null;
+let selectedProposalIndex = null;
+let animFrame = 0;
+let branchSeed = 1;
+let syncCount = 0;
+let agentContext = contextStore ? contextStore.loadContext() : { docs: [], corpusThemes: [], totalChunks: 0, updatedAt: null };
+let solutionDiagram = architectStore ? architectStore.loadDiagram() : { nodes: [], edges: [], selectedModels: [], agentNotes: [] };
+
+const navCycleState = {};
+
+function resize() {
+  const area = document.getElementById('canvas-area');
+  W = canvas.width = area.clientWidth;
+  H = canvas.height = area.clientHeight;
+}
+resize();
+window.addEventListener('resize', () => { resize(); drawAll(); });
+
+// ---- DATA ----
+const commits = [
+  { id:'c1', hash:'a1b2c3d', msg:'Initial project scaffold', author:'maya', branch:'main', x:0.05, y:0.5, type:'base', files:12, time:'3d ago' },
+  { id:'c2', hash:'b2c3d4e', msg:'Add auth middleware layer', author:'maya', branch:'main', x:0.15, y:0.5, type:'own', files:4, time:'2d ago' },
+  { id:'c3', hash:'c3d4e5f', msg:'Implement JWT token refresh', author:'maya', branch:'main', x:0.25, y:0.5, type:'own', files:3, time:'2d ago' },
+  { id:'c4', hash:'d4e5f6a', msg:'Add rate limiting to API', author:'alex', branch:'main', x:0.38, y:0.5, type:'team', files:5, time:'1d ago' },
+  { id:'c5', hash:'e5f6a7b', msg:'Refactor DB connection pool', author:'alex', branch:'main', x:0.50, y:0.5, type:'team', files:7, time:'20h ago' },
+  { id:'c6', hash:'f6a7b8c', msg:'Add observability hooks', author:'sam', branch:'main', x:0.62, y:0.5, type:'team', files:6, time:'8h ago' },
+  { id:'c7', hash:'a7b8c9d', msg:'Fix memory leak in cache', author:'maya', branch:'main', x:0.73, y:0.5, type:'frontier', files:2, time:'2h ago', isFrontier:true },
+  { id:'c8', hash:'b8c9d0e', msg:'Branch: auth-v2 OAuth flow', author:'jordan', branch:'auth-v2', x:0.38, y:0.28, type:'team', files:8, time:'1d ago' },
+  { id:'c9', hash:'c9d0e1f', msg:'Add social login providers', author:'jordan', branch:'auth-v2', x:0.52, y:0.22, type:'team', files:5, time:'18h ago' },
+  { id:'c10', hash:'d0e1f2a', msg:'Session persistence layer', author:'jordan', branch:'auth-v2', x:0.64, y:0.18, type:'frontier', files:3, time:'4h ago', isFrontier:true },
+  { id:'c11', hash:'e1f2a3b', msg:'Branch: perf optimizations', author:'sam', branch:'fix/perf', x:0.50, y:0.72, type:'team', files:4, time:'22h ago' },
+  { id:'c12', hash:'f2a3b4c', msg:'Query index optimizations', author:'sam', branch:'fix/perf', x:0.64, y:0.76, type:'frontier', files:6, time:'6h ago', isFrontier:true, hasConflict:true },
+  { id:'cx', hash:'CONFLICT', msg:'Merge conflict: cache.js', author:'', branch:'', x:0.72, y:0.65, type:'conflict', files:0, time:'' },
+];
+
+const edges = [
+  ['c1','c2'], ['c2','c3'], ['c3','c4'], ['c4','c5'], ['c5','c6'], ['c6','c7'],
+  ['c4','c8'], ['c8','c9'], ['c9','c10'],
+  ['c5','c11'], ['c11','c12'],
+  ['c12','cx'], ['c7','cx'],
+];
+
+const baseProposals = {
+  c7: [
+    { type:'feat', title:'Add distributed tracing middleware', desc:'Inject trace IDs into all API requests. Low coupling, high observability gain.', risk:'low' },
+    { type:'test', title:'Write integration tests for cache fix', desc:'Cover the repaired memory leak paths with E2E tests before merge.', risk:'low' },
+    { type:'refactor', title:'Extract cache layer into shared module', desc:'Other branches depend on cache.js — isolate to prevent future conflicts.', risk:'med' },
+  ],
+  c10: [
+    { type:'feat', title:'Implement PKCE flow for mobile clients', desc:'Extend OAuth to support mobile-safe PKCE. Requires API Gateway update.', risk:'med' },
+    { type:'fix', title:'Resolve token expiry race condition', desc:'Edge case detected in session persistence — fix before PR to main.', risk:'low' },
+    { type:'docs', title:'Document OAuth provider config', desc:'Auth v2 is undocumented. Auto-generate from code + write setup guide.', risk:'low' },
+  ],
+  c12: [
+    { type:'fix', title:'Resolve merge conflict in cache.js', desc:'This branch modifies the same cache layer as main. Resolve before proceeding.', risk:'high' },
+    { type:'refactor', title:'Split query optimizer into separate service', desc:'Decouple from main service boundary to avoid future collisions.', risk:'med' },
+  ],
+};
+
+const nodeQueryHints = {
+  c7: 'cache memory leak observability tracing incident runtime heap',
+  c10: 'oauth session token provider pkce mobile auth rollout config',
+  c12: 'query performance latency index cache reliability conflict perf',
+};
+
+let ghostNodes = [];
+let ghostVisible = false;
+let ghostTargetNode = null;
+
+const colors = {
+  base: '#334155',
+  own: '#00e5ff',
+  team: '#00ff9d',
+  frontier: '#ffc940',
+  conflict: '#ff4d7d',
+};
+
+const nodeMap = {};
+commits.forEach(commit => { nodeMap[commit.id] = commit; });
+
+let parentsById = {};
+let childrenById = {};
+
+function nodeColor(node) { return colors[node.type] || colors.base; }
+function px(node) { return node.x * W; }
+function py(node) { return node.y * H; }
+function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, char => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]
+  ));
+}
+
+function hasAgentContext() {
+  return !!(agentContext && Array.isArray(agentContext.docs) && agentContext.docs.length);
+}
+
+function hasArchitectureDiagram() {
+  return !!(solutionDiagram && Array.isArray(solutionDiagram.nodes) && solutionDiagram.nodes.length);
+}
+
+function getNodeQuery(node) {
+  return [node.msg, node.branch, node.author, nodeQueryHints[node.id] || ''].join(' ');
+}
+
+function getRetrievedEvidence(node, limit = 3) {
+  if (!contextStore || !hasAgentContext() || node.type === 'conflict' || !node.isFrontier) return [];
+  return contextStore.queryContext(agentContext, getNodeQuery(node), { limit });
+}
+
+function getArchitectureGuidance(node) {
+  if (!architectStore || !hasArchitectureDiagram() || node.type === 'conflict' || !node.isFrontier) return [];
+  return architectStore.getArchitectureGuidance(solutionDiagram, node);
+}
+
+function getRuntimeAnalysis(node) {
+  if (!alignmentRuntime || !node || node.type === 'conflict' || !node.isFrontier) return null;
+  return alignmentRuntime.analyzeFrontierNode(node.id);
+}
+
+function runtimeActionToProposal(action) {
+  const typeMap = {
+    patch: 'fix',
+    refactor: 'refactor',
+    file_generation: 'feat',
+    test_generation: 'test',
+    code_task: 'docs',
+  };
+
+  return {
+    type: typeMap[action.type] || 'feat',
+    title: action.title,
+    desc: action.detail,
+    risk: action.type === 'patch' || action.type === 'refactor' ? 'med' : 'low',
+    sourceDoc: 'alignment-runtime',
+  };
+}
+
+function inferProposalType(node, evidence, fallback) {
+  if (fallback && fallback.type) return fallback.type;
+  const joined = `${evidence.keywords.join(' ')} ${evidence.text}`.toLowerCase();
+  if (/test|qa|regression|coverage|validate/.test(joined)) return 'test';
+  if (/doc|docs|policy|runbook|guide|compliance/.test(joined)) return 'docs';
+  if (/refactor|split|service|module|isolate/.test(joined)) return 'refactor';
+  if (/fix|incident|error|conflict|timeout|latency|leak|cache/.test(joined)) return 'fix';
+  return node.id === 'c10' ? 'feat' : 'fix';
+}
+
+function inferRisk(node, evidence, fallback) {
+  if (fallback && fallback.risk) return fallback.risk;
+  const joined = `${evidence.text} ${(evidence.keywords || []).join(' ')}`.toLowerCase();
+  if (/conflict|incident|critical|outage|rollback/.test(joined) || node.hasConflict) return 'high';
+  if (/latency|token|migration|index|provider|memory/.test(joined)) return 'med';
+  return 'low';
+}
+
+function buildContextualProposal(node, evidence, fallback, index) {
+  const proposalType = inferProposalType(node, evidence, fallback);
+  const risk = inferRisk(node, evidence, fallback);
+  const snippet = evidence.text.length > 110 ? `${evidence.text.slice(0, 109).trimEnd()}…` : evidence.text;
+  const overlap = evidence.overlap && evidence.overlap.length ? evidence.overlap.join(', ') : (evidence.keywords || []).slice(0, 3).join(', ');
+  const fallbackTitle = fallback ? fallback.title : `Use ${evidence.docName} to guide ${node.hash}`;
+
+  let title = fallbackTitle;
+  if (node.id === 'c7') {
+    title = `Ground cache work in ${evidence.docName}`;
+  } else if (node.id === 'c10') {
+    title = `Align auth-v2 rollout to ${evidence.docName}`;
+  } else if (node.id === 'c12') {
+    title = `Tune perf branch using ${evidence.docName}`;
+  } else if (!fallback) {
+    title = index === 0 ? `Use ${evidence.docName} as the next scaffold` : `Retrieve follow-up work from ${evidence.docName}`;
+  }
+
+  return {
+    type: proposalType,
+    title,
+    desc: `RAG retrieved ${overlap || 'relevant signals'} from ${evidence.docName}. ${snippet}`,
+    risk,
+    sourceDoc: evidence.docName,
+  };
+}
+
+function getNodeProposals(node) {
+  const fallback = baseProposals[node.id] || [];
+  if (!node.isFrontier || node.type === 'conflict') return fallback;
+
+  const runtimeAnalysis = getRuntimeAnalysis(node);
+  const architectureGuidance = getArchitectureGuidance(node);
+  const evidence = getRetrievedEvidence(node, Math.max(3, fallback.length || 0));
+  const contextual = evidence.map((result, index) => buildContextualProposal(node, result, fallback[index], index));
+  const runtimeActions = runtimeAnalysis ? runtimeAnalysis.codexProposal.actions.slice(0, 2).map(runtimeActionToProposal) : [];
+  const merged = [...runtimeActions, ...architectureGuidance, ...contextual];
+  if (!merged.length) return fallback;
+
+  if (fallback.length > merged.length) {
+    merged.push(...fallback.slice(merged.length));
+  }
+  return merged.slice(0, Math.min(4, Math.max(merged.length, fallback.length || 3)));
+}
+
+function renderContextEvidence(node) {
+  if (!hasAgentContext() && !hasArchitectureDiagram()) {
+    contextEvidence.innerHTML = '<div class="context-empty">No uploaded documents or saved architecture yet. Open Context Lab or Architect Studio to add planning inputs.</div>';
+    return;
+  }
+
+  if (!node || !node.isFrontier || node.type === 'conflict') {
+    contextEvidence.innerHTML = `<div class="context-empty">${hasAgentContext() ? `${agentContext.docs.length} document${agentContext.docs.length === 1 ? '' : 's'}` : 'No documents'} and ${hasArchitectureDiagram() ? `${solutionDiagram.nodes.length} architecture node${solutionDiagram.nodes.length === 1 ? '' : 's'}` : 'no architecture nodes'} are loaded, but only frontier nodes run planner retrieval.</div>`;
+    return;
+  }
+
+  const evidence = getRetrievedEvidence(node, 3);
+  const architectureGuidance = getArchitectureGuidance(node);
+  if (!evidence.length && !architectureGuidance.length) {
+    contextEvidence.innerHTML = '<div class="context-empty">The current corpus and saved diagram did not return any matching planner evidence for this frontier, so Codex is using default actions.</div>';
+    return;
+  }
+
+  contextEvidence.innerHTML = [
+    ...architectureGuidance.map(result => `
+    <div class="context-card">
+      <div class="context-title">Architecture Diagram · ${escapeHtml(result.title)}</div>
+      <div class="context-snippet">${escapeHtml(result.desc)}</div>
+    </div>
+  `),
+    ...evidence.map(result => `
+    <div class="context-card">
+      <div class="context-title">${escapeHtml(result.docName)} · ${escapeHtml(result.kind.toUpperCase())}</div>
+      <div class="context-snippet">${escapeHtml(result.text)}</div>
+    </div>
+  `)
+  ].join('');
+}
+
+function renderAlignmentAnalysis(node) {
+  const analysis = getRuntimeAnalysis(node);
+  if (!analysis) {
+    alignmentAnalysis.innerHTML = '<div class="context-empty">Select a frontier node to see MCP server output and the governed CLI harness payload.</div>';
+    return;
+  }
+
+  const failingRules = analysis.ruleResults.filter(rule => rule.status === 'fail');
+  alignmentAnalysis.innerHTML = `
+    <div class="analysis-card">
+      <div class="analysis-title">${escapeHtml(analysis.scenario.title)}</div>
+      <div class="analysis-meta">Status: ${escapeHtml(analysis.alignmentStatus)} · Risk: ${analysis.risk.total} (${escapeHtml(analysis.risk.severity)})</div>
+      <div class="analysis-meta">Changed files: ${escapeHtml(analysis.scenario.changedFiles.join(', '))}</div>
+    </div>
+    <div class="analysis-card">
+      <div class="analysis-title">MCP Servers</div>
+      <div class="analysis-meta">${escapeHtml(analysis.serverOverview.mcpServers.map(server => server.name).join(' · '))}</div>
+    </div>
+    <div class="analysis-card">
+      <div class="analysis-title">Rule Results</div>
+      <div class="analysis-meta">${escapeHtml(failingRules.length ? failingRules.map(rule => rule.label).join(' · ') : 'No active rule failures')}</div>
+    </div>
+  `;
+}
+
+function loadAgentContext() {
+  if (!contextStore) return;
+  agentContext = contextStore.loadContext();
+  solutionDiagram = architectStore ? architectStore.loadDiagram() : solutionDiagram;
+  refreshTopbarStats();
+  if (selectedNode) {
+    const previousIndex = selectedProposalIndex;
+    const nextProposals = getNodeProposals(selectedNode);
+    selectedProposalIndex = nextProposals.length ? Math.min(previousIndex ?? 0, nextProposals.length - 1) : null;
+    buildGhostNodes(selectedNode);
+    showDetail(selectedNode);
+  } else {
+    renderContextEvidence(null);
+    renderAlignmentAnalysis(null);
+  }
+}
+
+function rebuildRelations() {
+  parentsById = {};
+  childrenById = {};
+  commits.forEach(commit => {
+    parentsById[commit.id] = [];
+    childrenById[commit.id] = [];
+  });
+  edges.forEach(([from, to]) => {
+    childrenById[from].push(to);
+    parentsById[to].push(from);
+  });
+}
+rebuildRelations();
+
+function frontierNodes() {
+  return commits.filter(commit => commit.isFrontier && commit.type !== 'conflict');
+}
+
+function refreshTopbarStats() {
+  const frontierCount = frontierNodes().length;
+  document.getElementById('frontier-count').textContent = `${frontierCount} frontier${frontierCount === 1 ? '' : 's'}`;
+  document.getElementById('conflict-count').textContent = '1 conflict';
+  const contextDocCount = hasAgentContext() ? agentContext.docs.length : 0;
+  const architectureNodeCount = hasArchitectureDiagram() ? solutionDiagram.nodes.length : 0;
+  document.getElementById('context-count').textContent = `${contextDocCount} doc${contextDocCount === 1 ? '' : 's'} in context`;
+  document.getElementById('architecture-count').textContent = `${architectureNodeCount} architecture node${architectureNodeCount === 1 ? '' : 's'}`;
+  document.getElementById('branch-btn').disabled = !selectedNode || selectedNode.type === 'conflict';
+}
+
+function setActionStatus(message, tone = 'info') {
+  const actionStatus = document.getElementById('action-status');
+  actionStatus.textContent = message;
+  actionStatus.className = `status-line${tone === 'info' ? '' : ` status-${tone}`}`;
+}
+
+function drawEdge(from, to) {
+  const gradient = ctx.createLinearGradient(px(from), py(from), px(to), py(to));
+  gradient.addColorStop(0, `${nodeColor(from)}55`);
+  gradient.addColorStop(1, `${nodeColor(to)}55`);
+
+  ctx.beginPath();
+  ctx.moveTo(px(from), py(from));
+  ctx.quadraticCurveTo((px(from) + px(to)) / 2, ((py(from) + py(to)) / 2) - 12, px(to), py(to));
+  ctx.strokeStyle = gradient;
+  ctx.lineWidth = 1;
+  ctx.setLineDash(from.type === 'conflict' || to.type === 'conflict' ? [4,4] : []);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawNode(node, hovered, selected) {
+  const x = px(node);
+  const y = py(node);
+  const radius = node.type === 'conflict' ? 10 : node.isFrontier ? 14 : 10;
+  const color = nodeColor(node);
+
+  if (node.isFrontier || node.type === 'conflict' || selected) {
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, radius * 3.5);
+    const glowColor = node.type === 'conflict' ? '#ff4d7d' : selected ? '#ffffff' : color;
+    glow.addColorStop(0, `${glowColor}40`);
+    glow.addColorStop(1, 'transparent');
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = glow;
+    ctx.fill();
+  }
+
+  if (node.isFrontier) {
+    const t = (animFrame % 120) / 120;
+    const ringRadius = radius + 6 + Math.sin(t * Math.PI * 2) * 4;
+    ctx.beginPath();
+    ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
+    ctx.strokeStyle = `${color}55`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = selected ? color : hovered ? `${color}dd` : `${color}33`;
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = selected ? 2.5 : 1.5;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 0.35, 0, Math.PI * 2);
+  ctx.fillStyle = selected ? '#000' : color;
+  ctx.fill();
+
+  ctx.fillStyle = selected ? color : `${color}aa`;
+  ctx.font = `${selected || hovered ? '600 ' : ''}9px "JetBrains Mono"`;
+  ctx.textAlign = 'center';
+  ctx.fillText(node.type === 'conflict' ? '⚡' : node.hash.slice(0, 7), x, y + radius + 14);
+}
+
+function drawGhostNode(ghostNode) {
+  const x = ghostNode.x * W;
+  const y = ghostNode.y * H;
+  const radius = 12;
+  const t = (animFrame % 90) / 90;
+  const selected = selectedNode === ghostTargetNode && selectedProposalIndex === ghostNode.proposalIndex;
+
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, radius * 4);
+  glow.addColorStop(0, selected ? 'rgba(192,132,252,0.4)' : 'rgba(192,132,252,0.25)');
+  glow.addColorStop(1, 'transparent');
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 4, 0, Math.PI * 2);
+  ctx.fillStyle = glow;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fillStyle = selected ? 'rgba(192,132,252,0.22)' : 'rgba(192,132,252,0.12)';
+  ctx.fill();
+  ctx.strokeStyle = selected ? 'rgba(192,132,252,1)' : `rgba(192,132,252,${0.5 + Math.sin(t * Math.PI * 2) * 0.3})`;
+  ctx.lineWidth = selected ? 2 : 1.5;
+  ctx.setLineDash([3,3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  if (ghostTargetNode) {
+    ctx.beginPath();
+    ctx.moveTo(px(ghostTargetNode), py(ghostTargetNode));
+    ctx.lineTo(x, y);
+    ctx.strokeStyle = 'rgba(192,132,252,0.25)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4,6]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  ctx.fillStyle = 'rgba(192,132,252,0.7)';
+  ctx.font = `${selected ? '600 ' : ''}9px "JetBrains Mono"`;
+  ctx.textAlign = 'center';
+  ctx.fillText(ghostNode.label, x, y + radius + 14);
+}
+
+function drawAll() {
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 60) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, H);
+    ctx.stroke();
+  }
+  for (let y = 0; y < H; y += 60) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+  }
+
+  edges.forEach(([fromId, toId]) => {
+    drawEdge(nodeMap[fromId], nodeMap[toId]);
+  });
+
+  if (ghostVisible && ghostTargetNode) {
+    ghostNodes.forEach(drawGhostNode);
+  }
+
+  commits.forEach(node => {
+    drawNode(node, hoveredNode === node, selectedNode === node);
+  });
+}
+
+function animate() {
+  animFrame += 1;
+  drawAll();
+  requestAnimationFrame(animate);
+}
+animate();
+
+function getNodeAt(mx, my) {
+  for (let index = commits.length - 1; index >= 0; index -= 1) {
+    const node = commits[index];
+    const dx = mx - px(node);
+    const dy = my - py(node);
+    const radius = node.isFrontier ? 14 : 10;
+    if (dx * dx + dy * dy < (radius + 6) * (radius + 6)) return node;
+  }
+  return null;
+}
+
+function getGhostNodeAt(mx, my) {
+  if (!ghostVisible) return null;
+  for (let index = ghostNodes.length - 1; index >= 0; index -= 1) {
+    const ghostNode = ghostNodes[index];
+    const dx = mx - (ghostNode.x * W);
+    const dy = my - (ghostNode.y * H);
+    if (dx * dx + dy * dy < 18 * 18) return ghostNode;
+  }
+  return null;
+}
+
+function renderNavigation() {
+  const parentCount = selectedNode ? (parentsById[selectedNode.id] || []).length : 0;
+  const childCount = selectedNode ? (childrenById[selectedNode.id] || []).length : 0;
+  const frontiers = frontierNodes();
+  const hasReachableFrontier = frontiers.length > 1 || (frontiers.length === 1 && (!selectedNode || frontiers[0].id !== selectedNode.id));
+
+  const parentButton = document.getElementById('nav-parent');
+  const childButton = document.getElementById('nav-child');
+  const frontierButton = document.getElementById('nav-frontier');
+
+  parentButton.disabled = !selectedNode || parentCount === 0;
+  childButton.disabled = !selectedNode || childCount === 0;
+  frontierButton.disabled = !hasReachableFrontier;
+
+  parentButton.textContent = parentCount > 1 ? `← Parent (${parentCount})` : '← Parent';
+  childButton.textContent = childCount > 1 ? `Child (${childCount}) →` : 'Child →';
+}
+
+function renderProposals(node) {
+  const nodeProposals = getNodeProposals(node);
+
+  if (nodeProposals.length) {
+    if (selectedProposalIndex === null) selectedProposalIndex = 0;
+    proposalsList.innerHTML = nodeProposals.map((proposal, index) => `
+      <button
+        class="proposal type-${escapeHtml(proposal.type)}${selectedProposalIndex === index ? ' selected' : ''}"
+        type="button"
+        data-proposal-index="${index}"
+        style="width:100%;text-align:left;animation-delay:${index * 80}ms;animation:fadeIn 0.3s ease ${index * 80}ms both;"
+      >
+        <div class="proposal-type">${escapeHtml(proposal.type)}</div>
+        <div class="proposal-title">${escapeHtml(proposal.title)}</div>
+        <div class="proposal-desc">${escapeHtml(proposal.desc)}</div>
+        <div class="proposal-risk risk-${escapeHtml(proposal.risk)}">
+          <span style="color:var(--muted);font-size:9px">RISK</span>
+          <div class="risk-bar"><div class="risk-fill"></div></div>
+          <span style="font-size:9px;color:${proposal.risk === 'low' ? 'var(--green)' : proposal.risk === 'med' ? 'var(--amber)' : 'var(--rose)'}">${escapeHtml(proposal.risk.toUpperCase())}</span>
+        </div>
+      </button>
+    `).join('') + '<button class="confirm-btn" id="confirm-btn" type="button">Confirm &amp; Scaffold Branch →</button>';
+  } else if (node.type === 'conflict') {
+    selectedProposalIndex = null;
+    proposalsList.innerHTML = `<div class="proposal type-fix">
+      <div class="proposal-type">action required</div>
+      <div class="proposal-title">Resolve conflict manually</div>
+      <div class="proposal-desc">Codex cannot auto-resolve — human review required before any frontier proposals are unlocked.</div>
+    </div>`;
+  } else {
+    selectedProposalIndex = null;
+    proposalsList.innerHTML = '<div style="color:var(--muted);font-size:11px">This is not a frontier node. Navigate to a glowing amber node for Codex proposals.</div>';
+  }
+
+  proposalsList.querySelectorAll('[data-proposal-index]').forEach(button => {
+    button.addEventListener('click', () => {
+      selectProposal(Number(button.dataset.proposalIndex));
+    });
+  });
+
+  const confirmButton = document.getElementById('confirm-btn');
+  if (confirmButton) {
+    confirmButton.addEventListener('click', () => createBranchFromSelection('proposal'));
+  }
+}
+
+function showDetail(node) {
+  defaultState.style.display = 'none';
+  nodeDetail.classList.add('visible');
+
+  document.getElementById('d-hash').textContent = node.hash;
+  document.getElementById('d-msg').textContent = node.msg;
+  document.getElementById('d-author').textContent = node.author || '—';
+  document.getElementById('d-time').textContent = node.time || '—';
+  document.getElementById('d-files').textContent = node.files;
+
+  const alertZone = document.getElementById('alert-zone');
+  if (node.hasConflict || node.type === 'conflict') {
+    alertZone.innerHTML = '<div class="alert">⚡ Conflict detected with main branch in <strong>cache.js</strong>. Resolve before proceeding or Codex will route around it.</div>';
+    setActionStatus('Conflict commit selected. Review manually before scaffolding new work.', 'error');
+  } else {
+    alertZone.innerHTML = '';
+    const nodeProposals = getNodeProposals(node);
+    const evidence = getRetrievedEvidence(node, 1);
+    const architectureGuidance = getArchitectureGuidance(node);
+    const runtimeAnalysis = getRuntimeAnalysis(node);
+    if (nodeProposals.length) {
+      setActionStatus(
+        evidence.length || architectureGuidance.length || runtimeAnalysis
+          ? `Reviewing ${nodeProposals.length} planner proposal${nodeProposals.length === 1 ? '' : 's'} from ${runtimeAnalysis ? 'the governed CLI harness' : architectureGuidance.length ? 'the saved architecture' : evidence[0].docName}.`
+          : `Reviewing ${nodeProposals.length} Codex proposal${nodeProposals.length === 1 ? '' : 's'} for ${node.hash}.`,
+        'info'
+      );
+    } else {
+      setActionStatus(`Inspecting ${node.hash}. Use Parent / Child navigation or jump to the next frontier.`, 'info');
+    }
+  }
+
+  renderNavigation();
+  renderProposals(node);
+  renderContextEvidence(node);
+  renderAlignmentAnalysis(node);
+}
+
+function buildGhostNodes(node) {
+  ghostVisible = false;
+  ghostNodes = [];
+  ghostTargetNode = null;
+
+  const nodeProposals = getNodeProposals(node);
+  if (!(node.isFrontier && nodeProposals.length)) return;
+
+  ghostTargetNode = node;
+  nodeProposals.forEach((proposal, index) => {
+    const direction = index % 2 === 0 ? -1 : 1;
+    const spread = 0.08 + Math.floor(index / 2) * 0.1;
+    ghostNodes.push({
+      x: clamp(node.x + 0.13 + index * 0.01, 0.08, 0.94),
+      y: clamp(node.y + direction * spread, 0.12, 0.88),
+      label: proposal.type.toUpperCase(),
+      proposal,
+      proposalIndex: index,
+    });
+  });
+  ghostVisible = true;
+}
+
+function selectNode(node) {
+  selectedNode = node;
+  selectedProposalIndex = getNodeProposals(node).length ? 0 : null;
+  buildGhostNodes(node);
+  showDetail(node);
+  refreshTopbarStats();
+}
+
+function selectProposal(index) {
+  const nodeProposals = selectedNode ? getNodeProposals(selectedNode) : [];
+  if (!selectedNode || !nodeProposals[index]) return;
+  selectedProposalIndex = index;
+  renderProposals(selectedNode);
+  setActionStatus(`Selected proposal: ${nodeProposals[index].title}`, 'info');
+}
+
+function cycleRelation(direction) {
+  if (!selectedNode) return;
+  const relatedIds = direction === 'parent' ? parentsById[selectedNode.id] : childrenById[selectedNode.id];
+  if (!relatedIds.length) {
+    setActionStatus(`No ${direction} commits from ${selectedNode.hash}.`, 'warn');
+    return;
+  }
+  const key = `${selectedNode.id}:${direction}`;
+  const nextIndex = navCycleState[key] || 0;
+  navCycleState[key] = (nextIndex + 1) % relatedIds.length;
+  selectNode(nodeMap[relatedIds[nextIndex]]);
+}
+
+function jumpToNextFrontier() {
+  const frontiers = frontierNodes();
+  if (!frontiers.length) return;
+  if (!selectedNode) {
+    selectNode(frontiers[0]);
+    return;
+  }
+  const currentIndex = frontiers.findIndex(frontier => frontier.id === selectedNode.id);
+  if (frontiers.length === 1 && currentIndex === 0) {
+    setActionStatus('Only one frontier is currently available.', 'warn');
+    return;
+  }
+  const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % frontiers.length;
+  selectNode(frontiers[nextIndex]);
+}
+
+function branchNameFor(node, proposal) {
+  const seedText = proposal ? proposal.title : node.msg;
+  const slug = seedText.toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 20) || 'scaffold';
+  return `codex/${slug}-${branchSeed}`;
+}
+
+function createBranchFromSelection(source) {
+  if (!selectedNode) {
+    setActionStatus('Select a commit before scaffolding a branch.', 'warn');
+    return;
+  }
+  if (selectedNode.type === 'conflict') {
+    setActionStatus('Resolve the conflict node before creating new work.', 'error');
+    return;
+  }
+
+  const nodeProposals = getNodeProposals(selectedNode);
+  const proposal = nodeProposals[selectedProposalIndex ?? 0] || null;
+  const sourceNode = selectedNode;
+  const branchName = branchNameFor(selectedNode, proposal);
+  const siblingCount = childrenById[selectedNode.id].length;
+  const direction = siblingCount % 2 === 0 ? 1 : -1;
+  const offset = 0.12 + Math.floor(siblingCount / 2) * 0.08;
+
+  const newNode = {
+    id: `codex-${branchSeed}`,
+    hash: `cdx${(1000 + branchSeed).toString(16)}`.slice(0, 7),
+    msg: proposal ? `Scaffold ${proposal.title}` : `Branch from ${sourceNode.hash}`,
+    author: 'codex',
+    branch: branchName,
+    x: clamp(sourceNode.x + 0.14, 0.08, 0.92),
+    y: clamp(sourceNode.y + direction * offset, 0.12, 0.88),
+    type: 'own',
+    files: proposal ? Math.max(2, sourceNode.files + 1) : Math.max(1, sourceNode.files),
+    time: 'just now',
+    isFrontier: true,
+  };
+
+  commits.push(newNode);
+  nodeMap[newNode.id] = newNode;
+  edges.push([sourceNode.id, newNode.id]);
+  rebuildRelations();
+
+  if (source === 'proposal' && proposal) {
+    baseProposals[newNode.id] = [
+      { type:'test', title:'Add regression coverage for scaffolded branch', desc:'Validate the new branch path before opening a PR.', risk:'low' },
+      { type:'docs', title:'Write branch handoff notes', desc:'Document assumptions and rollout steps for reviewers.', risk:'low' },
+    ];
+  }
+
+  branchSeed += 1;
+  selectNode(newNode);
+  setActionStatus(`Created ${branchName} from ${proposal ? `proposal "${proposal.title}"` : `commit ${sourceNode.hash}`}.`, 'success');
+}
+
+function syncRepository() {
+  const button = document.getElementById('sync-btn');
+  if (button.disabled) return;
+  button.disabled = true;
+  button.textContent = 'Syncing...';
+  setActionStatus('Refreshing commit graph, context memory, and frontier hints...', 'info');
+
+  window.setTimeout(() => {
+    syncCount += 1;
+    loadAgentContext();
+    button.disabled = false;
+    button.textContent = 'Sync';
+    refreshTopbarStats();
+    jumpToNextFrontier();
+    setActionStatus(`Sync ${syncCount} complete. Frontier analysis refreshed from ${hasAgentContext() ? `${agentContext.docs.length} context document${agentContext.docs.length === 1 ? '' : 's'}` : 'default map memory'} at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`, 'success');
+  }, 700);
+}
+
+canvas.addEventListener('mousemove', event => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = event.clientX - rect.left;
+  const my = event.clientY - rect.top;
+  const ghostNode = getGhostNodeAt(mx, my);
+  const node = ghostNode ? null : getNodeAt(mx, my);
+
+  hoveredGhostNode = ghostNode;
+  hoveredNode = node;
+  canvas.style.cursor = ghostNode || node ? 'pointer' : 'default';
+
+  if (ghostNode) {
+    tooltip.style.display = 'block';
+    tooltip.style.left = `${mx + 16}px`;
+    tooltip.style.top = `${my - 10}px`;
+    document.getElementById('tt-hash').textContent = `CODEX / ${ghostNode.proposal.type.toUpperCase()}`;
+    document.getElementById('tt-msg').textContent = ghostNode.proposal.title;
+    document.getElementById('tt-meta').textContent = `Risk ${ghostNode.proposal.risk.toUpperCase()} · Click to stage this proposal`;
+  } else if (node && node.type !== 'conflict') {
+    tooltip.style.display = 'block';
+    tooltip.style.left = `${mx + 16}px`;
+    tooltip.style.top = `${my - 10}px`;
+    document.getElementById('tt-hash').textContent = node.hash;
+    document.getElementById('tt-msg').textContent = node.msg;
+    document.getElementById('tt-meta').textContent = `${node.author} · ${node.time} · ${node.files} files`;
+  } else if (node && node.type === 'conflict') {
+    tooltip.style.display = 'block';
+    tooltip.style.left = `${mx + 16}px`;
+    tooltip.style.top = `${my - 10}px`;
+    document.getElementById('tt-hash').textContent = '⚡ CONFLICT';
+    document.getElementById('tt-msg').textContent = node.msg;
+    document.getElementById('tt-meta').textContent = 'Needs resolution before merge';
+  } else {
+    tooltip.style.display = 'none';
+  }
+});
+
+canvas.addEventListener('click', event => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = event.clientX - rect.left;
+  const my = event.clientY - rect.top;
+  const ghostNode = getGhostNodeAt(mx, my);
+  if (ghostNode) {
+    if (selectedNode !== ghostTargetNode) selectNode(ghostTargetNode);
+    selectProposal(ghostNode.proposalIndex);
+    return;
+  }
+
+  const node = getNodeAt(mx, my);
+  if (node) selectNode(node);
+});
+
+document.getElementById('sync-btn').addEventListener('click', syncRepository);
+document.getElementById('branch-btn').addEventListener('click', () => createBranchFromSelection('toolbar'));
+document.getElementById('nav-parent').addEventListener('click', () => cycleRelation('parent'));
+document.getElementById('nav-child').addEventListener('click', () => cycleRelation('child'));
+document.getElementById('nav-frontier').addEventListener('click', jumpToNextFrontier);
+
+window.addEventListener('keydown', event => {
+  if (event.key === 'ArrowLeft') {
+    cycleRelation('parent');
+  } else if (event.key === 'ArrowRight') {
+    cycleRelation('child');
+  } else if (event.key.toLowerCase() === 'f') {
+    jumpToNextFrontier();
+  } else if (event.key.toLowerCase() === 's') {
+    syncRepository();
+  } else if (event.key === 'Enter' && selectedNode && getNodeProposals(selectedNode).length) {
+    createBranchFromSelection('proposal');
+  }
+});
+
+window.addEventListener('focus', loadAgentContext);
+
+loadAgentContext();
+refreshTopbarStats();
+setTimeout(() => selectNode(commits.find(commit => commit.id === 'c7')), 600);
+</script>
+</body>
+</html>

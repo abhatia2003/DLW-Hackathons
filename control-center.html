@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Codex Map — Alignment Control Center</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=JetBrains+Mono:wght@300;400;600&display=swap');
+
+:root {
+  --void: #06101b;
+  --deep: #0a1523;
+  --panel: rgba(13, 20, 33, 0.92);
+  --card: rgba(17, 27, 43, 0.84);
+  --border: rgba(99, 121, 153, 0.28);
+  --text: #dce6f4;
+  --muted: #7688a3;
+  --cyan: #00e5ff;
+  --green: #00ff9d;
+  --amber: #ffc940;
+  --rose: #ff4d7d;
+  --violet: #c084fc;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  background:
+    radial-gradient(circle at top left, rgba(0,229,255,0.12), transparent 36%),
+    radial-gradient(circle at bottom right, rgba(192,132,252,0.14), transparent 32%),
+    linear-gradient(160deg, #050c16 0%, #08111d 48%, #050c16 100%);
+}
+
+a { color: inherit; text-decoration: none; }
+button { font: inherit; }
+
+.shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: 58px 1fr;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(7, 12, 20, 0.84);
+  backdrop-filter: blur(12px);
+}
+
+.logo {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--cyan);
+}
+
+.logo span { color: rgba(220,230,244,0.5); }
+
+.sep {
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+}
+
+.repo-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.repo-tag strong { color: var(--text); }
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.dot-cyan { background: var(--cyan); box-shadow: 0 0 10px rgba(0,229,255,0.8); }
+.dot-green { background: var(--green); box-shadow: 0 0 9px rgba(0,255,157,0.56); }
+.dot-amber { background: var(--amber); }
+.dot-rose { background: var(--rose); }
+
+.btn {
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+  color: var(--muted);
+  padding: 7px 13px;
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s, opacity 0.2s, background 0.2s;
+}
+
+.btn:hover:not(:disabled) { transform: translateY(-1px); }
+.btn:disabled { opacity: 0.42; cursor: default; }
+.btn-primary {
+  background: var(--cyan);
+  border-color: transparent;
+  color: #041018;
+  font-weight: 700;
+}
+.btn-danger {
+  background: rgba(255,77,125,0.08);
+  color: var(--rose);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 18px;
+  padding: 18px;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 0 22px 80px rgba(0,0,0,0.28);
+  backdrop-filter: blur(14px);
+}
+
+.section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+
+.section-copy,
+.small-copy {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric-card,
+.server-card,
+.scenario-card,
+.rule-card,
+.proposal-card,
+.detail-card,
+.flow-card {
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 14px;
+}
+
+.metric-label {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.metric-value {
+  font-family: 'Syne', sans-serif;
+  font-size: 24px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.flow-card {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+.flow-step {
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  padding: 7px 10px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.status-done { color: var(--green); border-color: rgba(0,255,157,0.28); background: rgba(0,255,157,0.08); }
+.status-alert { color: var(--rose); border-color: rgba(255,77,125,0.28); background: rgba(255,77,125,0.08); }
+.status-waiting { color: var(--amber); border-color: rgba(255,201,64,0.28); background: rgba(255,201,64,0.08); }
+
+.scenario-card {
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.scenario-card:hover { transform: translateY(-1px); }
+.scenario-card.active { border-color: var(--cyan); box-shadow: 0 0 0 1px rgba(0,229,255,0.22); }
+
+.scenario-card strong,
+.server-card strong,
+.rule-card strong,
+.proposal-card strong,
+.detail-card strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.badge {
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+  padding: 6px 10px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.rule-card.fail { border-color: rgba(255,77,125,0.3); }
+.rule-card.pass { border-color: rgba(0,255,157,0.2); }
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  line-height: 1.7;
+  color: var(--muted);
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.empty-state {
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+@media (max-width: 1220px) {
+  .workspace,
+  .metric-grid,
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    height: auto;
+  }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <div class="logo">CODEX<span>MAP</span></div>
+    <div class="sep"></div>
+    <div class="repo-tag"><div class="dot dot-cyan"></div> <strong>Alignment Control Center</strong> · app server + MCP + CLI</div>
+    <div class="repo-tag"><div class="dot dot-green"></div> <span id="top-status">Awaiting scenario</span></div>
+    <div class="repo-tag"><div class="dot dot-amber"></div> <span id="top-risk">Risk 0</span></div>
+    <a class="btn" href="context.html">Context Lab</a>
+    <a class="btn" href="architect.html">Architect Studio</a>
+    <a class="btn" href="trial.html">Commit Map</a>
+  </div>
+
+  <div class="workspace">
+    <div class="column">
+      <div class="panel">
+        <div class="section-title">Demo Flow</div>
+        <div class="section-copy" style="margin-bottom:12px;">Judge-optimized walkthrough of the hackathon MVP.</div>
+        <div id="flow-list" class="stack"></div>
+      </div>
+
+      <div class="panel">
+        <div class="section-title">Simulated Commits</div>
+        <div class="section-copy" style="margin-bottom:12px;">Each scenario triggers the minimum detection rules from the spec and forces the CLI harness to run with architecture, code, and policy context.</div>
+        <div id="scenario-list" class="stack"></div>
+      </div>
+
+      <div class="panel">
+        <div class="section-title">Pitch Line</div>
+        <div id="pitch-line" class="small-copy"></div>
+      </div>
+    </div>
+
+    <div class="column">
+      <div class="panel">
+        <div class="section-title">Application Server Snapshot</div>
+        <div class="section-copy" style="margin-bottom:12px;">The browser demo simulates the lightweight backend: graph orchestration, ingestion state, MCP fanout, and Codex harness preparation.</div>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <div class="metric-label">Graph Nodes</div>
+            <div class="metric-value" id="metric-nodes">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Graph Edges</div>
+            <div class="metric-value" id="metric-edges">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Policies</div>
+            <div class="metric-value" id="metric-policies">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Context Docs</div>
+            <div class="metric-value" id="metric-docs">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="section-title">MCP Server Layer</div>
+        <div class="section-copy" style="margin-bottom:12px;">These structured tool providers are what the CLI harness consumes before it proposes work.</div>
+        <div id="server-list" class="stack"></div>
+      </div>
+
+      <div class="panel">
+        <div class="section-title">Detection Rules</div>
+        <div class="section-copy" style="margin-bottom:12px;">The five hackathon-critical rules are evaluated on every simulated commit.</div>
+        <div id="rule-list" class="stack"></div>
+      </div>
+
+      <div class="panel">
+        <div class="section-title">SDK / CLI Harness Payload</div>
+        <div class="section-copy" style="margin-bottom:12px;">The CLI never runs blind. This is the payload handed to Codex before patch generation.</div>
+        <div class="detail-grid">
+          <div class="detail-card">
+            <strong>Architecture Snapshot</strong>
+            <pre id="architecture-payload"></pre>
+          </div>
+          <div class="detail-card">
+            <strong>Dependency Map</strong>
+            <pre id="dependency-payload"></pre>
+          </div>
+          <div class="detail-card">
+            <strong>Policy Constraints</strong>
+            <pre id="policy-payload"></pre>
+          </div>
+          <div class="detail-card">
+            <strong>Relevant Code Context</strong>
+            <pre id="code-payload"></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="section-title">Codex Proposal</div>
+        <div class="section-copy" style="margin-bottom:12px;">Patch proposal, refactor guidance, and human approval gate.</div>
+        <div id="proposal-summary" class="stack"></div>
+        <div class="action-row" style="margin-top:12px;">
+          <button class="btn btn-primary" id="approve-btn" type="button">Approve Fix Proposal</button>
+          <button class="btn btn-danger" id="reset-btn" type="button">Reset Approval</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="agent-context.js"></script>
+<script src="solution-architect.js"></script>
+<script src="alignment-runtime.js"></script>
+<script>
+const runtime = window.CodexAlignmentRuntime;
+let activeNodeId = 'c7';
+let analysis = runtime.analyzeFrontierNode(activeNodeId);
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, char => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]
+  ));
+}
+
+function pretty(value) {
+  return JSON.stringify(value, null, 2);
+}
+
+function renderScenarios() {
+  const scenarios = ['c7', 'c10', 'c12'].map(nodeId => runtime.getScenarioByNodeId(nodeId)).filter(Boolean);
+  const scenarioList = document.getElementById('scenario-list');
+  scenarioList.innerHTML = scenarios.map(scenario => `
+    <div class="scenario-card${scenario.nodeId === activeNodeId ? ' active' : ''}" data-node-id="${scenario.nodeId}">
+      <strong>${escapeHtml(scenario.title)}</strong>
+      <div class="small-copy">${escapeHtml(scenario.summary)}</div>
+      <div class="badge-row">
+        <div class="badge">${escapeHtml(scenario.featureLabel)}</div>
+        <div class="badge">${scenario.changedFiles.length} files</div>
+      </div>
+    </div>
+  `).join('');
+
+  scenarioList.querySelectorAll('[data-node-id]').forEach(card => {
+    card.addEventListener('click', () => {
+      activeNodeId = card.dataset.nodeId;
+      analysis = runtime.analyzeFrontierNode(activeNodeId);
+      renderAll();
+    });
+  });
+}
+
+function renderFlow() {
+  const flow = runtime.getDemoFlow(activeNodeId);
+  document.getElementById('flow-list').innerHTML = flow.map(step => `
+    <div class="flow-card">
+      <div class="flow-step status-${step.status}">${escapeHtml(step.label)}</div>
+      <div>
+        <strong style="display:block;margin-bottom:6px;">${escapeHtml(step.detail)}</strong>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderMetrics() {
+  document.getElementById('metric-nodes').textContent = analysis.graph.summary.nodeCount;
+  document.getElementById('metric-edges').textContent = analysis.graph.summary.edgeCount;
+  document.getElementById('metric-policies').textContent = analysis.graph.summary.policyCount;
+  document.getElementById('metric-docs').textContent = analysis.graph.summary.docCount;
+  document.getElementById('top-status').textContent = analysis.alignmentStatus === 'restored' ? 'Alignment restored' : analysis.scenario.title;
+  document.getElementById('top-risk').textContent = `Risk ${analysis.risk.total}`;
+}
+
+function renderServers() {
+  document.getElementById('server-list').innerHTML = analysis.serverOverview.mcpServers.map(server => `
+    <div class="server-card">
+      <strong>${escapeHtml(server.name)}</strong>
+      <div class="small-copy">${escapeHtml(server.capabilities.join(' • '))}</div>
+      <div class="badge-row">
+        ${Object.entries(server.lastResult).map(([key, value]) => `<div class="badge">${escapeHtml(key)}: ${escapeHtml(String(value))}</div>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderRules() {
+  document.getElementById('rule-list').innerHTML = analysis.ruleResults.map(rule => `
+    <div class="rule-card ${rule.status}">
+      <strong>${escapeHtml(rule.label)}</strong>
+      <div class="small-copy">${escapeHtml(runtime.RULE_DEFINITIONS.find(def => def.id === rule.ruleId).description)}</div>
+      <div class="badge-row">
+        <div class="badge">${escapeHtml(rule.status.toUpperCase())}</div>
+        <div class="badge">score: ${rule.score}</div>
+        ${rule.hits.map(hit => `<div class="badge">${escapeHtml(hit.title)}</div>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderPayloads() {
+  document.getElementById('architecture-payload').textContent = pretty(analysis.harnessInvocation.architectureSnapshot);
+  document.getElementById('dependency-payload').textContent = pretty(analysis.harnessInvocation.dependencyMap);
+  document.getElementById('policy-payload').textContent = pretty(analysis.harnessInvocation.policyConstraints);
+  document.getElementById('code-payload').textContent = pretty(analysis.harnessInvocation.relevantCodeContext);
+}
+
+function renderProposal() {
+  const proposal = analysis.codexProposal;
+  const proposalSummary = document.getElementById('proposal-summary');
+  proposalSummary.innerHTML = `
+    <div class="proposal-card">
+      <strong>${escapeHtml(proposal.summary)}</strong>
+      <div class="small-copy">${escapeHtml(proposal.approvalPrompt)}</div>
+      <div class="badge-row">
+        <div class="badge">${analysis.approved ? 'approved' : 'awaiting approval'}</div>
+        <div class="badge">${analysis.risk.severity} risk</div>
+      </div>
+    </div>
+    ${proposal.actions.map(action => `
+      <div class="proposal-card">
+        <strong>${escapeHtml(action.type)} · ${escapeHtml(action.title)}</strong>
+        <div class="small-copy">${escapeHtml(action.detail)}</div>
+      </div>
+    `).join('')}
+    <div class="detail-card">
+      <strong>Patch Preview</strong>
+      <pre>${escapeHtml(proposal.patchPreview)}</pre>
+    </div>
+  `;
+}
+
+function renderAll() {
+  renderScenarios();
+  renderFlow();
+  renderMetrics();
+  renderServers();
+  renderRules();
+  renderPayloads();
+  renderProposal();
+  document.getElementById('pitch-line').textContent = runtime.getJudgePitch();
+  document.getElementById('approve-btn').disabled = analysis.approved;
+}
+
+document.getElementById('approve-btn').addEventListener('click', () => {
+  runtime.approveScenario(activeNodeId);
+  analysis = runtime.analyzeFrontierNode(activeNodeId);
+  renderAll();
+});
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+  runtime.resetScenarioApproval(activeNodeId);
+  analysis = runtime.analyzeFrontierNode(activeNodeId);
+  renderAll();
+});
+
+window.addEventListener('focus', () => {
+  analysis = runtime.analyzeFrontierNode(activeNodeId);
+  renderAll();
+});
+
+renderAll();
+</script>
+</body>
+</html>

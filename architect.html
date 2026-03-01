@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Codex Map — Solution Architect Studio</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=JetBrains+Mono:wght@300;400;600&display=swap');
+
+:root {
+  --void: #061019;
+  --deep: #0b1524;
+  --panel: rgba(14, 21, 34, 0.92);
+  --card: rgba(16, 25, 40, 0.82);
+  --border: rgba(99, 121, 153, 0.28);
+  --text: #dbe6f4;
+  --muted: #7a8ba4;
+  --cyan: #00e5ff;
+  --green: #00ff9d;
+  --amber: #ffc940;
+  --rose: #ff4d7d;
+  --violet: #c084fc;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(0,229,255,0.12), transparent 35%),
+    radial-gradient(circle at bottom right, rgba(192,132,252,0.12), transparent 30%),
+    linear-gradient(160deg, #060d17 0%, #081220 48%, #060d17 100%);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+a { color: inherit; text-decoration: none; }
+button, input { font: inherit; }
+
+.shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: 58px 1fr;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(7, 13, 22, 0.84);
+  backdrop-filter: blur(14px);
+}
+
+.logo {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--cyan);
+}
+
+.logo span { color: rgba(219,230,244,0.46); }
+
+.sep {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+}
+
+.repo-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.repo-tag strong { color: var(--text); }
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.dot-cyan { background: var(--cyan); box-shadow: 0 0 10px rgba(0,229,255,0.72); }
+.dot-green { background: var(--green); box-shadow: 0 0 8px rgba(0,255,157,0.52); }
+.dot-violet { background: var(--violet); }
+
+.btn {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 13px;
+  cursor: pointer;
+  background: rgba(255,255,255,0.02);
+  color: var(--muted);
+  transition: transform 0.2s, border-color 0.2s, background 0.2s, opacity 0.2s;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.btn-primary {
+  background: var(--cyan);
+  border-color: transparent;
+  color: #041018;
+  font-weight: 700;
+}
+
+.btn-active {
+  border-color: rgba(0,229,255,0.55);
+  color: var(--cyan);
+  background: rgba(0,229,255,0.08);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 360px;
+  gap: 18px;
+  padding: 18px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 22px 80px rgba(0,0,0,0.28);
+  backdrop-filter: blur(14px);
+  overflow: hidden;
+}
+
+.panel-body {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+}
+
+.section-copy {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.palette-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.palette-item {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.03);
+  padding: 14px;
+  cursor: grab;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.palette-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0,229,255,0.4);
+}
+
+.palette-icon {
+  font-size: 18px;
+  color: var(--cyan);
+  margin-bottom: 8px;
+}
+
+.palette-label {
+  font-size: 12px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.palette-copy {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.canvas-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.canvas-actions,
+.inline-actions,
+.model-list,
+.inspector-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.canvas-shell {
+  padding: 14px;
+}
+
+.canvas-wrap {
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  overflow: auto;
+  background: rgba(255,255,255,0.02);
+  height: calc(100vh - 160px);
+}
+
+.diagram-board {
+  position: relative;
+  width: 1400px;
+  height: 900px;
+  background:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(155deg, rgba(0,229,255,0.05), rgba(192,132,252,0.03));
+  background-size: 48px 48px, 48px 48px, auto;
+}
+
+.diagram-board.is-linking {
+  cursor: crosshair;
+}
+
+.diagram-svg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.diagram-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid rgba(0,229,255,0.18);
+  background: rgba(8, 15, 28, 0.92);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.24);
+  user-select: none;
+  cursor: grab;
+}
+
+.diagram-node.selected {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 1px rgba(0,229,255,0.35), 0 16px 40px rgba(0,0,0,0.3);
+}
+
+.diagram-node.pending-link {
+  border-color: var(--amber);
+}
+
+.diagram-node.shape-rect { border-radius: 20px; }
+.diagram-node.shape-pill { border-radius: 999px; }
+.diagram-node.shape-hex { clip-path: polygon(8% 0, 92% 0, 100% 50%, 92% 100%, 8% 100%, 0 50%); }
+.diagram-node.shape-database { border-radius: 22px; }
+.diagram-node.shape-note {
+  border-radius: 18px;
+  background: rgba(255,201,64,0.08);
+  border-color: rgba(255,201,64,0.25);
+}
+
+.node-icon {
+  color: var(--cyan);
+  font-size: 18px;
+}
+
+.node-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  line-height: 1.1;
+}
+
+.node-meta {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.hint {
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  padding: 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric-card,
+.model-card,
+.note-card,
+.step-card,
+.suggestion-card {
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 14px;
+}
+
+.metric-label {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.metric-value {
+  font-family: 'Syne', sans-serif;
+  font-size: 22px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.model-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.model-card input {
+  accent-color: var(--cyan);
+  margin-top: 3px;
+}
+
+.model-card strong,
+.suggestion-card strong,
+.note-card strong,
+.step-card strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.small-copy {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.inspector label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.inspector input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+  color: var(--text);
+  padding: 10px 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.empty-state {
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  text-align: center;
+  color: var(--muted);
+  line-height: 1.8;
+  font-size: 11px;
+}
+
+.edge-label {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+@media (max-width: 1280px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .canvas-wrap {
+    height: 620px;
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    height: auto;
+  }
+
+  .metric-grid,
+  .palette-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <div class="logo">CODEX<span>MAP</span></div>
+    <div class="sep"></div>
+    <div class="repo-tag"><div class="dot dot-cyan"></div> <strong>Solution Architect Studio</strong> · drag, design, generate</div>
+    <div class="repo-tag"><div class="dot dot-green"></div> <span id="top-diagram-stats">0 nodes · 0 links</span></div>
+    <div class="repo-tag"><div class="dot dot-violet"></div> <span id="top-context-stats">0 docs in context</span></div>
+    <a class="btn" href="control-center.html">Control Center</a>
+    <a class="btn" href="context.html">Context Lab</a>
+    <a class="btn" href="trial.html">Commit Map</a>
+  </div>
+
+  <div class="workspace">
+    <div class="panel">
+      <div class="panel-body">
+        <div>
+          <div class="section-title">Palette</div>
+          <div class="section-copy">Drag these building blocks onto the board to sketch your own architecture. Manual changes are persisted and later used by the planner.</div>
+        </div>
+        <div class="palette-grid" id="palette-grid"></div>
+        <div class="hint">Use <strong>Link Mode</strong> to connect components. Click a source node, then click a target node. The generated architecture can replace the board or just serve as inspiration.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="canvas-header">
+        <div>
+          <div class="section-title">Architecture Canvas</div>
+          <div class="section-copy">Manual diagram design and agent-generated design share the same persistence layer.</div>
+        </div>
+        <div class="canvas-actions">
+          <button class="btn" id="link-mode-btn" type="button">Link Mode</button>
+          <button class="btn" id="auto-layout-btn" type="button">Auto Arrange</button>
+          <button class="btn" id="clear-board-btn" type="button">Clear Board</button>
+        </div>
+      </div>
+      <div class="canvas-shell">
+        <div class="canvas-wrap" id="canvas-wrap">
+          <div class="diagram-board" id="diagram-board">
+            <svg class="diagram-svg" id="diagram-svg"></svg>
+            <div id="diagram-nodes"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-body">
+        <div>
+          <div class="section-title">Design Agent</div>
+          <div class="section-copy">The agent can propose an architecture from the uploaded PDFs and CSVs, or you can design manually and still let Codex use the resulting diagram to suggest implementation steps.</div>
+        </div>
+
+        <div class="metric-grid">
+          <div class="metric-card">
+            <div class="metric-label">Nodes</div>
+            <div class="metric-value" id="metric-nodes">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Links</div>
+            <div class="metric-value" id="metric-edges">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Context Docs</div>
+            <div class="metric-value" id="metric-docs">0</div>
+          </div>
+        </div>
+
+        <div class="stack">
+          <div>
+            <div class="section-title" style="font-size:16px;">Available Models</div>
+            <div class="section-copy">Select which model capabilities the generator is allowed to assume.</div>
+          </div>
+          <div class="stack" id="model-list"></div>
+          <div class="inline-actions">
+            <button class="btn btn-primary" id="generate-btn" type="button">Generate From Context</button>
+            <button class="btn" id="apply-suggestion-btn" type="button" disabled>Apply Suggested Design</button>
+          </div>
+        </div>
+
+        <div class="stack">
+          <div class="section-title" style="font-size:16px;">Suggested Design</div>
+          <div id="suggestion-panel" class="empty-state">Generate a design and the preview will appear here before it replaces the canvas.</div>
+        </div>
+
+        <div class="stack">
+          <div class="section-title" style="font-size:16px;">Selected Node</div>
+          <div id="inspector-panel" class="inspector empty-state">Click a component to rename or remove it.</div>
+        </div>
+
+        <div class="stack">
+          <div class="section-title" style="font-size:16px;">Agent Notes</div>
+          <div id="note-list" class="empty-state">No design notes yet.</div>
+        </div>
+
+        <div class="stack">
+          <div class="section-title" style="font-size:16px;">Next Steps</div>
+          <div id="step-list" class="empty-state">Create or generate a design to see what Codex would recommend next.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="agent-context.js"></script>
+<script src="solution-architect.js"></script>
+<script>
+const contextStore = window.CodexContextStore;
+const architectStore = window.CodexSolutionArchitect;
+
+let diagram = architectStore.loadDiagram();
+let context = contextStore.loadContext();
+let suggestedDiagram = null;
+let selectedNodeId = null;
+let dragState = null;
+let linkMode = false;
+let pendingLinkFrom = null;
+
+const paletteGrid = document.getElementById('palette-grid');
+const board = document.getElementById('diagram-board');
+const boardWrap = document.getElementById('canvas-wrap');
+const nodeLayer = document.getElementById('diagram-nodes');
+const svg = document.getElementById('diagram-svg');
+const modelList = document.getElementById('model-list');
+const suggestionPanel = document.getElementById('suggestion-panel');
+const inspectorPanel = document.getElementById('inspector-panel');
+const noteList = document.getElementById('note-list');
+const stepList = document.getElementById('step-list');
+const linkModeButton = document.getElementById('link-mode-btn');
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, char => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]
+  ));
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function boardPointFromClient(clientX, clientY) {
+  const rect = board.getBoundingClientRect();
+  return {
+    x: clamp(clientX - rect.left, 20, board.clientWidth - 180),
+    y: clamp(clientY - rect.top, 20, board.clientHeight - 140),
+  };
+}
+
+function selectedNode() {
+  return diagram.nodes.find(node => node.id === selectedNodeId) || null;
+}
+
+function persistDiagram() {
+  diagram = architectStore.saveDiagram(diagram);
+  renderAll();
+}
+
+function renderPalette() {
+  paletteGrid.innerHTML = architectStore.componentCatalog.map(component => `
+    <div class="palette-item" draggable="true" data-component-id="${component.id}">
+      <div class="palette-icon">${escapeHtml(component.icon)}</div>
+      <div class="palette-label">${escapeHtml(component.label)}</div>
+      <div class="palette-copy">${escapeHtml(component.tags.join(', '))}</div>
+    </div>
+  `).join('');
+
+  paletteGrid.querySelectorAll('[data-component-id]').forEach(item => {
+    item.addEventListener('dragstart', event => {
+      event.dataTransfer.setData('text/plain', item.dataset.componentId);
+    });
+  });
+}
+
+function renderModels() {
+  modelList.innerHTML = architectStore.modelCatalog.map(model => `
+    <label class="model-card">
+      <input type="checkbox" data-model-id="${model.id}" ${diagram.selectedModels.includes(model.id) ? 'checked' : ''}>
+      <div>
+        <strong>${escapeHtml(model.label)}</strong>
+        <div class="small-copy">${escapeHtml(model.role)}</div>
+      </div>
+    </label>
+  `).join('');
+
+  modelList.querySelectorAll('[data-model-id]').forEach(input => {
+    input.addEventListener('change', () => {
+      const selectedModels = Array.from(modelList.querySelectorAll('[data-model-id]:checked')).map(node => node.dataset.modelId);
+      diagram.selectedModels = selectedModels.length ? selectedModels : ['reasoning'];
+      persistDiagram();
+    });
+  });
+}
+
+function syncModelInputs() {
+  modelList.querySelectorAll('[data-model-id]').forEach(input => {
+    input.checked = diagram.selectedModels.includes(input.dataset.modelId);
+  });
+}
+
+function renderStats() {
+  const summary = architectStore.summarizeDiagram(diagram);
+  document.getElementById('metric-nodes').textContent = summary.nodeCount;
+  document.getElementById('metric-edges').textContent = summary.edgeCount;
+  document.getElementById('metric-docs').textContent = context.docs.length;
+  document.getElementById('top-diagram-stats').textContent = `${summary.nodeCount} nodes · ${summary.edgeCount} links`;
+  document.getElementById('top-context-stats').textContent = `${context.docs.length} doc${context.docs.length === 1 ? '' : 's'} in context`;
+  linkModeButton.classList.toggle('btn-active', linkMode);
+  board.classList.toggle('is-linking', linkMode);
+}
+
+function renderEdges() {
+  const lookup = new Map(diagram.nodes.map(node => [node.id, node]));
+  svg.setAttribute('viewBox', `0 0 ${board.clientWidth} ${board.clientHeight}`);
+  svg.innerHTML = `
+    <defs>
+      <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L9,3 z" fill="rgba(0,229,255,0.75)"></path>
+      </marker>
+    </defs>
+    ${diagram.edges.map(edge => {
+      const from = lookup.get(edge.from);
+      const to = lookup.get(edge.to);
+      if (!from || !to) return '';
+      const fromX = from.x + (from.width / 2);
+      const fromY = from.y + (from.height / 2);
+      const toX = to.x + (to.width / 2);
+      const toY = to.y + (to.height / 2);
+      const cx = (fromX + toX) / 2;
+      const cy = Math.min(fromY, toY) - 24;
+      return `
+        <path d="M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}" stroke="rgba(0,229,255,0.44)" stroke-width="1.6" fill="none" marker-end="url(#arrow)"></path>
+        ${edge.label ? `<text class="edge-label" x="${cx}" y="${cy - 6}" text-anchor="middle">${escapeHtml(edge.label)}</text>` : ''}
+      `;
+    }).join('')}
+  `;
+}
+
+function renderNodes() {
+  nodeLayer.innerHTML = diagram.nodes.map(node => `
+    <div
+      class="diagram-node shape-${node.shape}${selectedNodeId === node.id ? ' selected' : ''}${pendingLinkFrom === node.id ? ' pending-link' : ''}"
+      data-node-id="${node.id}"
+      style="left:${node.x}px;top:${node.y}px;width:${node.width}px;height:${node.height}px;"
+    >
+      <div class="node-icon">${escapeHtml(node.icon)}</div>
+      <div class="node-label">${escapeHtml(node.label)}</div>
+      <div class="node-meta">${escapeHtml((node.tags || []).slice(0, 4).join(' · '))}</div>
+    </div>
+  `).join('');
+
+  nodeLayer.querySelectorAll('[data-node-id]').forEach(element => {
+    const nodeId = element.dataset.nodeId;
+    element.addEventListener('pointerdown', event => {
+      if (linkMode) return;
+      const node = diagram.nodes.find(item => item.id === nodeId);
+      if (!node) return;
+      selectedNodeId = nodeId;
+      dragState = {
+        nodeId,
+        offsetX: event.clientX - node.x - board.getBoundingClientRect().left,
+        offsetY: event.clientY - node.y - board.getBoundingClientRect().top,
+      };
+      element.setPointerCapture(event.pointerId);
+      renderAll();
+    });
+
+    element.addEventListener('click', event => {
+      event.stopPropagation();
+      if (linkMode) {
+        if (!pendingLinkFrom) {
+          pendingLinkFrom = nodeId;
+        } else if (pendingLinkFrom !== nodeId) {
+          const exists = diagram.edges.some(edge => edge.from === pendingLinkFrom && edge.to === nodeId);
+          if (!exists) {
+            diagram.edges.push({
+              id: `edge-${pendingLinkFrom}-${nodeId}-${Date.now()}`,
+              from: pendingLinkFrom,
+              to: nodeId,
+              label: '',
+            });
+            persistDiagram();
+          }
+          pendingLinkFrom = null;
+        } else {
+          pendingLinkFrom = null;
+        }
+        renderAll();
+        return;
+      }
+
+      selectedNodeId = nodeId;
+      renderAll();
+    });
+  });
+}
+
+function renderSuggestion() {
+  if (!suggestedDiagram) {
+    suggestionPanel.className = 'empty-state';
+    suggestionPanel.innerHTML = 'Generate a design and the preview will appear here before it replaces the canvas.';
+    document.getElementById('apply-suggestion-btn').disabled = true;
+    return;
+  }
+
+  const summary = architectStore.summarizeDiagram(suggestedDiagram);
+  suggestionPanel.className = '';
+  suggestionPanel.innerHTML = `
+    <div class="suggestion-card">
+      <strong>${summary.source === 'generated' ? 'Agent-generated architecture' : 'Saved architecture preview'}</strong>
+      <div class="small-copy">${summary.nodeCount} nodes, ${summary.edgeCount} links, models: ${escapeHtml(summary.selectedModels.join(', ') || 'none selected')}.</div>
+      <div class="small-copy" style="margin-top:10px;">${escapeHtml((suggestedDiagram.agentNotes || []).slice(0, 2).join(' ') || 'The generator matched the current context and model selections.')}</div>
+    </div>
+  `;
+  document.getElementById('apply-suggestion-btn').disabled = false;
+}
+
+function renderInspector() {
+  const node = selectedNode();
+  if (!node) {
+    inspectorPanel.className = 'inspector empty-state';
+    inspectorPanel.innerHTML = 'Click a component to rename or remove it.';
+    return;
+  }
+
+  inspectorPanel.className = 'inspector stack';
+  inspectorPanel.innerHTML = `
+    <label>
+      Label
+      <input id="node-label-input" type="text" value="${escapeHtml(node.label)}">
+    </label>
+    <div class="small-copy">Tags: ${escapeHtml((node.tags || []).join(', '))}</div>
+    <div class="inspector-actions">
+      <button class="btn" id="delete-node-btn" type="button">Delete Node</button>
+      <button class="btn" id="detach-node-btn" type="button">Delete Links</button>
+    </div>
+  `;
+
+  document.getElementById('node-label-input').addEventListener('input', event => {
+    node.label = event.target.value;
+  });
+
+  document.getElementById('node-label-input').addEventListener('change', event => {
+    node.label = event.target.value;
+    persistDiagram();
+  });
+
+  document.getElementById('delete-node-btn').addEventListener('click', () => {
+    diagram.nodes = diagram.nodes.filter(item => item.id !== node.id);
+    diagram.edges = diagram.edges.filter(edge => edge.from !== node.id && edge.to !== node.id);
+    selectedNodeId = null;
+    persistDiagram();
+  });
+
+  document.getElementById('detach-node-btn').addEventListener('click', () => {
+    diagram.edges = diagram.edges.filter(edge => edge.from !== node.id && edge.to !== node.id);
+    persistDiagram();
+  });
+}
+
+function renderAgentNotes() {
+  if (!diagram.agentNotes.length) {
+    noteList.className = 'empty-state';
+    noteList.innerHTML = 'No design notes yet.';
+    return;
+  }
+
+  noteList.className = 'stack';
+  noteList.innerHTML = diagram.agentNotes.map(note => `
+    <div class="note-card">
+      <strong>Architect Note</strong>
+      <div class="small-copy">${escapeHtml(note)}</div>
+    </div>
+  `).join('');
+}
+
+function renderNextSteps() {
+  const steps = architectStore.buildNextSteps(diagram, context);
+  if (!steps.length) {
+    stepList.className = 'empty-state';
+    stepList.innerHTML = 'Create or generate a design to see what Codex would recommend next.';
+    return;
+  }
+
+  stepList.className = 'stack';
+  stepList.innerHTML = steps.map(step => `
+    <div class="step-card">
+      <strong>Next Step</strong>
+      <div class="small-copy">${escapeHtml(step)}</div>
+    </div>
+  `).join('');
+}
+
+function renderAll() {
+  syncModelInputs();
+  renderStats();
+  renderEdges();
+  renderNodes();
+  renderSuggestion();
+  renderInspector();
+  renderAgentNotes();
+  renderNextSteps();
+}
+
+function addNodeFromComponent(componentId, point) {
+  const node = architectStore.createNode(componentId, point.x, point.y);
+  diagram.nodes.push(node);
+  selectedNodeId = node.id;
+  persistDiagram();
+}
+
+function autoArrange() {
+  const columns = 4;
+  diagram.nodes.forEach((node, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    node.x = 70 + (column * 300);
+    node.y = 90 + (row * 180);
+  });
+  persistDiagram();
+}
+
+function generateSuggestion() {
+  context = contextStore.loadContext();
+  suggestedDiagram = architectStore.generateSuggestedDesign(context, { selectedModels: diagram.selectedModels });
+  renderSuggestion();
+  renderStats();
+}
+
+board.addEventListener('dragover', event => {
+  event.preventDefault();
+});
+
+board.addEventListener('drop', event => {
+  event.preventDefault();
+  const componentId = event.dataTransfer.getData('text/plain');
+  if (!componentId) return;
+  addNodeFromComponent(componentId, boardPointFromClient(event.clientX, event.clientY));
+});
+
+board.addEventListener('click', () => {
+  if (linkMode) {
+    pendingLinkFrom = null;
+  }
+  selectedNodeId = null;
+  renderAll();
+});
+
+window.addEventListener('pointermove', event => {
+  if (!dragState) return;
+  const node = diagram.nodes.find(item => item.id === dragState.nodeId);
+  if (!node) return;
+  const rect = board.getBoundingClientRect();
+  node.x = clamp(event.clientX - rect.left - dragState.offsetX, 20, board.clientWidth - node.width - 20);
+  node.y = clamp(event.clientY - rect.top - dragState.offsetY, 20, board.clientHeight - node.height - 20);
+  renderEdges();
+  renderNodes();
+});
+
+window.addEventListener('pointerup', () => {
+  if (!dragState) return;
+  dragState = null;
+  persistDiagram();
+});
+
+document.getElementById('generate-btn').addEventListener('click', generateSuggestion);
+document.getElementById('apply-suggestion-btn').addEventListener('click', () => {
+  if (!suggestedDiagram) return;
+  diagram = architectStore.saveDiagram(suggestedDiagram);
+  selectedNodeId = null;
+  pendingLinkFrom = null;
+  suggestedDiagram = null;
+  renderAll();
+});
+document.getElementById('clear-board-btn').addEventListener('click', () => {
+  diagram = architectStore.clearDiagram();
+  selectedNodeId = null;
+  pendingLinkFrom = null;
+  suggestedDiagram = null;
+  renderAll();
+});
+document.getElementById('auto-layout-btn').addEventListener('click', autoArrange);
+linkModeButton.addEventListener('click', () => {
+  linkMode = !linkMode;
+  pendingLinkFrom = null;
+  renderAll();
+});
+
+window.addEventListener('focus', () => {
+  context = contextStore.loadContext();
+  diagram = architectStore.loadDiagram();
+  renderAll();
+});
+
+renderPalette();
+renderModels();
+renderAll();
+</script>
+</body>
+</html>

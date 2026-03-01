@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Codex Map — Context Ingestion</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=JetBrains+Mono:wght@300;400;600&display=swap');
+
+:root {
+  --void: #050910;
+  --deep: #09111e;
+  --panel: rgba(17, 25, 39, 0.9);
+  --card: rgba(16, 23, 36, 0.84);
+  --border: rgba(115, 142, 173, 0.22);
+  --text: #dde4f0;
+  --muted: #75859a;
+  --dim: #203047;
+  --cyan: #00e5ff;
+  --green: #00ff9d;
+  --amber: #ffc940;
+  --rose: #ff4d7d;
+  --violet: #c084fc;
+  --glow: radial-gradient(circle at top left, rgba(0,229,255,0.16), transparent 38%), radial-gradient(circle at bottom right, rgba(192,132,252,0.14), transparent 42%);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: linear-gradient(160deg, #050910 0%, #081120 45%, #050910 100%);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: var(--glow);
+  pointer-events: none;
+}
+
+a { color: inherit; text-decoration: none; }
+button, input { font: inherit; }
+
+.shell {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: 60px 1fr;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(6, 12, 20, 0.8);
+  backdrop-filter: blur(12px);
+}
+
+.logo {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--cyan);
+}
+
+.logo span {
+  color: rgba(221, 228, 240, 0.5);
+}
+
+.topbar-sep {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+}
+
+.repo-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.repo-tag strong { color: var(--text); }
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.dot-cyan { background: var(--cyan); box-shadow: 0 0 10px rgba(0,229,255,0.8); }
+.dot-green { background: var(--green); box-shadow: 0 0 10px rgba(0,255,157,0.6); }
+.dot-amber { background: var(--amber); }
+
+.btn {
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s, opacity 0.2s, background 0.2s;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.btn-ghost {
+  background: rgba(255,255,255,0.02);
+  color: var(--muted);
+}
+
+.btn-primary {
+  background: var(--cyan);
+  border-color: transparent;
+  color: #031018;
+  font-weight: 700;
+}
+
+.btn-danger {
+  background: rgba(255,77,125,0.08);
+  color: var(--rose);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.95fr);
+  gap: 22px;
+  padding: 24px;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 22px;
+  box-shadow: 0 24px 90px rgba(0,0,0,0.32);
+  backdrop-filter: blur(16px);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 20px;
+}
+
+.eyebrow {
+  color: var(--cyan);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.headline {
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(28px, 4vw, 48px);
+  line-height: 0.95;
+  margin-bottom: 14px;
+}
+
+.lede {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+  max-width: 62ch;
+}
+
+.dropzone {
+  margin-top: 22px;
+  border: 1px dashed rgba(0,229,255,0.35);
+  border-radius: 18px;
+  padding: 24px;
+  background: linear-gradient(155deg, rgba(0,229,255,0.08), rgba(192,132,252,0.06));
+  transition: border-color 0.2s, transform 0.2s, background 0.2s;
+}
+
+.dropzone.is-dragging {
+  border-color: var(--green);
+  background: linear-gradient(155deg, rgba(0,255,157,0.12), rgba(0,229,255,0.08));
+  transform: translateY(-1px);
+}
+
+.dropzone h2 {
+  font-family: 'Syne', sans-serif;
+  font-size: 22px;
+  margin-bottom: 10px;
+}
+
+.dropzone p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+
+.dropzone-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dropzone input {
+  display: none;
+}
+
+.status-bar {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  background: rgba(255,255,255,0.02);
+}
+
+.status-bar.success { color: var(--green); border-color: rgba(0,255,157,0.25); background: rgba(0,255,157,0.08); }
+.status-bar.warn { color: var(--amber); border-color: rgba(255,201,64,0.25); background: rgba(255,201,64,0.07); }
+.status-bar.error { color: var(--rose); border-color: rgba(255,77,125,0.25); background: rgba(255,77,125,0.08); }
+
+.pipeline-grid,
+.metric-grid,
+.preview-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.pipeline-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.preview-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.mini-card {
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 16px;
+}
+
+.mini-label {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.mini-value {
+  font-family: 'Syne', sans-serif;
+  font-size: 24px;
+  margin-bottom: 6px;
+}
+
+.mini-copy {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.theme-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.theme-chip {
+  border-radius: 999px;
+  padding: 7px 11px;
+  border: 1px solid rgba(0,229,255,0.25);
+  background: rgba(0,229,255,0.08);
+  color: var(--cyan);
+  font-size: 10px;
+}
+
+.section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 20px;
+  margin-bottom: 14px;
+}
+
+.section-sub {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  margin-bottom: 18px;
+}
+
+.document-list,
+.projection-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.document-card,
+.projection-card {
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 16px;
+}
+
+.document-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.document-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+}
+
+.document-meta,
+.document-copy,
+.projection-copy {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.document-copy {
+  margin: 12px 0;
+}
+
+.document-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.badge {
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+  color: var(--muted);
+}
+
+.badge-ok { color: var(--green); border-color: rgba(0,255,157,0.25); background: rgba(0,255,157,0.08); }
+.badge-cyan { color: var(--cyan); border-color: rgba(0,229,255,0.25); background: rgba(0,229,255,0.08); }
+.badge-amber { color: var(--amber); border-color: rgba(255,201,64,0.25); background: rgba(255,201,64,0.08); }
+
+.remove-btn {
+  background: transparent;
+  border: 1px solid rgba(255,77,125,0.2);
+  color: var(--rose);
+  border-radius: 999px;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+.projection-card strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.projection-card code {
+  color: var(--cyan);
+}
+
+.empty-state {
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  color: var(--muted);
+  line-height: 1.8;
+  text-align: center;
+}
+
+@media (max-width: 1120px) {
+  .workspace,
+  .hero,
+  .pipeline-grid,
+  .metric-grid,
+  .preview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .topbar {
+    flex-wrap: wrap;
+    padding: 16px 18px;
+    height: auto;
+  }
+
+  .workspace {
+    padding: 18px;
+  }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <div class="logo">CODEX<span>MAP</span></div>
+    <div class="topbar-sep"></div>
+    <div class="repo-tag"><div class="dot dot-cyan"></div> <strong>Context Ingestion</strong> · OCR + RAG staging</div>
+    <div class="repo-tag"><div class="dot dot-green"></div> <span id="top-doc-count">0 documents</span></div>
+    <div class="repo-tag"><div class="dot dot-amber"></div> <span id="top-chunk-count">0 chunks</span></div>
+    <a class="btn btn-ghost" href="control-center.html">Control Center</a>
+    <a class="btn btn-ghost" href="architect.html">Architect Studio</a>
+    <a class="btn btn-ghost" href="trial.html">← Back To Map</a>
+  </div>
+
+  <div class="workspace">
+    <div class="column">
+      <div class="panel hero">
+        <div>
+          <div class="eyebrow">Agent Context</div>
+          <div class="headline">Feed PDFs and CSVs into the planner before Codex chooses the next move.</div>
+          <div class="lede">This prototype stores extracted document context in-browser. CSVs become structured summaries, PDFs go through an embedded-text preview that stands in for OCR, and the resulting chunks are retrieved later to steer the frontier actions on the commit map.</div>
+
+          <div class="dropzone" id="dropzone">
+            <h2>Drop files for ingestion</h2>
+            <p>Accepted here: `.csv`, `.pdf`, `.txt`, `.md`, `.json`. The browser version saves extracted chunks locally so `trial.html` can immediately base its proposals on the uploaded corpus.</p>
+            <div class="dropzone-actions">
+              <label class="btn btn-primary" for="file-input">Choose Files</label>
+              <button class="btn btn-ghost" id="clear-btn" type="button">Reset Context</button>
+              <input id="file-input" type="file" multiple accept=".csv,.pdf,.txt,.md,.json">
+            </div>
+            <div class="status-bar" id="ingest-status">No documents loaded yet. Upload files to build agent memory.</div>
+          </div>
+        </div>
+
+        <div class="column">
+          <div class="mini-card">
+            <div class="mini-label">Pipeline</div>
+            <div class="pipeline-grid">
+              <div>
+                <div class="mini-value">OCR</div>
+                <div class="mini-copy">PDFs are scanned for embedded text and marked for OCR when the browser cannot extract usable content.</div>
+              </div>
+              <div>
+                <div class="mini-value">Chunk</div>
+                <div class="mini-copy">Documents are split into short retrieval segments with overlap so the map can cite the right evidence.</div>
+              </div>
+              <div>
+                <div class="mini-value">RAG</div>
+                <div class="mini-copy">Commit queries pull matching chunks from this local corpus and rewrite the proposed actions on the frontier.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mini-card">
+            <div class="mini-label">Detected Themes</div>
+            <div class="theme-wrap" id="theme-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="section-title">Corpus Documents</div>
+        <div class="section-sub">Every ingested file leaves behind extraction metadata, keywords, and retrieval chunks. Those are what the map consults when it decides which frontier action to show.</div>
+        <div class="document-list" id="document-list"></div>
+      </div>
+    </div>
+
+    <div class="column">
+      <div class="panel">
+        <div class="section-title">Memory Snapshot</div>
+        <div class="section-sub">A quick readout of what the underlying agent currently knows from the uploaded files.</div>
+        <div class="metric-grid">
+          <div class="mini-card">
+            <div class="mini-label">Documents</div>
+            <div class="mini-value" id="metric-docs">0</div>
+            <div class="mini-copy">Files currently attached to the browser-side agent memory.</div>
+          </div>
+          <div class="mini-card">
+            <div class="mini-label">Chunks</div>
+            <div class="mini-value" id="metric-chunks">0</div>
+            <div class="mini-copy">Retrieval units available to the map planner.</div>
+          </div>
+          <div class="mini-card">
+            <div class="mini-label">Last Update</div>
+            <div class="mini-value" id="metric-updated">--</div>
+            <div class="mini-copy">Most recent ingestion run persisted in local storage.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="section-title">Projected Frontier Effects</div>
+        <div class="section-sub">This is the bridge to `trial.html`: the same retrieval query will be used there to tailor the actions on each frontier node.</div>
+        <div class="projection-list" id="projection-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="agent-context.js"></script>
+<script>
+const store = window.CodexContextStore;
+let context = store.loadContext();
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+const clearButton = document.getElementById('clear-btn');
+const ingestStatus = document.getElementById('ingest-status');
+const documentList = document.getElementById('document-list');
+const themeList = document.getElementById('theme-list');
+const projectionList = document.getElementById('projection-list');
+
+const frontierQueries = [
+  { label: 'Cache frontier', node: 'c7', query: 'cache memory leak observability tracing incident' },
+  { label: 'Auth frontier', node: 'c10', query: 'oauth session pkce token mobile provider auth' },
+  { label: 'Performance frontier', node: 'c12', query: 'query performance latency index cache conflict reliability' },
+];
+
+function formatNumber(value) {
+  return new Intl.NumberFormat().format(value);
+}
+
+function formatBytes(value) {
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatTime(value) {
+  if (!value) return '--';
+  return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, char => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]
+  ));
+}
+
+function setStatus(message, tone) {
+  ingestStatus.textContent = message;
+  ingestStatus.className = `status-bar${tone ? ` ${tone}` : ''}`;
+}
+
+function renderThemes() {
+  if (!context.corpusThemes.length) {
+    themeList.innerHTML = '<div class="theme-chip">No corpus themes yet</div>';
+    return;
+  }
+
+  themeList.innerHTML = context.corpusThemes
+    .map(theme => `<div class="theme-chip">${escapeHtml(theme.name)} · ${theme.score}</div>`)
+    .join('');
+}
+
+function renderMetrics() {
+  const summary = store.summarizeContext(context);
+  document.getElementById('metric-docs').textContent = formatNumber(summary.docCount);
+  document.getElementById('metric-chunks').textContent = formatNumber(summary.chunkCount);
+  document.getElementById('metric-updated').textContent = summary.updatedAt ? formatTime(summary.updatedAt) : '--';
+  document.getElementById('top-doc-count').textContent = `${summary.docCount} document${summary.docCount === 1 ? '' : 's'}`;
+  document.getElementById('top-chunk-count').textContent = `${summary.chunkCount} chunk${summary.chunkCount === 1 ? '' : 's'}`;
+}
+
+function renderDocuments() {
+  if (!context.docs.length) {
+    documentList.innerHTML = '<div class="empty-state">No documents are in context yet.<br>Upload a CSV or PDF to seed the agent memory.</div>';
+    return;
+  }
+
+  documentList.innerHTML = context.docs.map(doc => `
+    <div class="document-card">
+      <div class="document-top">
+        <div>
+          <div class="document-name">${escapeHtml(doc.name)}</div>
+          <div class="document-meta">${escapeHtml(doc.kind.toUpperCase())} · ${formatBytes(doc.size)} · ${doc.chunks.length} retrieval chunks</div>
+        </div>
+        <button class="remove-btn" type="button" data-remove-id="${doc.id}">Remove</button>
+      </div>
+      <div class="document-badges">
+        <div class="badge badge-cyan">Extractor: ${escapeHtml(doc.pipeline.extractor)}</div>
+        <div class="badge ${doc.pipeline.ocr === 'queued' ? 'badge-amber' : 'badge-ok'}">OCR: ${escapeHtml(doc.pipeline.ocr)}</div>
+        <div class="badge">Added ${formatTime(doc.addedAt)}</div>
+        ${doc.metadata.rows ? `<div class="badge">Rows: ${doc.metadata.rows}</div>` : ''}
+        ${doc.metadata.columns ? `<div class="badge">Cols: ${doc.metadata.columns}</div>` : ''}
+        ${doc.metadata.pageEstimate ? `<div class="badge">Pages~ ${doc.metadata.pageEstimate}</div>` : ''}
+      </div>
+      <div class="document-copy">${escapeHtml(doc.excerpt)}</div>
+      <div class="document-badges">
+        ${(doc.keywords || []).slice(0, 6).map(keyword => `<div class="badge">${escapeHtml(keyword)}</div>`).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  documentList.querySelectorAll('[data-remove-id]').forEach(button => {
+    button.addEventListener('click', () => {
+      context = store.removeDocument(button.dataset.removeId, context);
+      setStatus('Document removed from agent memory.', 'warn');
+      renderAll();
+    });
+  });
+}
+
+function renderProjections() {
+  if (!context.docs.length) {
+    projectionList.innerHTML = '<div class="empty-state">Frontier projections will appear after the first ingestion run.</div>';
+    return;
+  }
+
+  projectionList.innerHTML = frontierQueries.map(item => {
+    const retrieved = store.queryContext(context, item.query, { limit: 1 })[0];
+    if (!retrieved) {
+      return `
+        <div class="projection-card">
+          <strong>${item.label}</strong>
+          <div class="projection-copy">No retrieval hit yet. The map will fall back to its default proposal set for this frontier.</div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="projection-card">
+        <strong>${escapeHtml(item.label)}</strong>
+        <div class="projection-copy">Top evidence: <code>${escapeHtml(retrieved.docName)}</code></div>
+        <div class="projection-copy">${escapeHtml(retrieved.text.slice(0, 180))}${retrieved.text.length > 180 ? '…' : ''}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderAll() {
+  renderMetrics();
+  renderThemes();
+  renderDocuments();
+  renderProjections();
+
+  if (!context.docs.length) {
+    setStatus('No documents loaded yet. Upload files to build agent memory.', '');
+  }
+}
+
+async function ingestFiles(fileList) {
+  if (!fileList.length) return;
+  setStatus(`Ingesting ${fileList.length} file${fileList.length === 1 ? '' : 's'} into OCR/RAG memory...`, '');
+
+  try {
+    const result = await store.ingestFiles(fileList, context);
+    context = result.context;
+    const names = result.processedDocs.map(doc => doc.name).join(', ');
+    setStatus(`Ingestion complete. Added ${result.processedDocs.length} file${result.processedDocs.length === 1 ? '' : 's'}: ${names}`, 'success');
+    renderAll();
+  } catch (error) {
+    setStatus(`Ingestion failed: ${error.message}`, 'error');
+  }
+}
+
+fileInput.addEventListener('change', event => {
+  ingestFiles(event.target.files);
+  fileInput.value = '';
+});
+
+clearButton.addEventListener('click', () => {
+  context = store.clearContext();
+  setStatus('Agent memory cleared. The map will revert to default proposals.', 'warn');
+  renderAll();
+});
+
+['dragenter', 'dragover'].forEach(eventName => {
+  dropzone.addEventListener(eventName, event => {
+    event.preventDefault();
+    dropzone.classList.add('is-dragging');
+  });
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+  dropzone.addEventListener(eventName, event => {
+    event.preventDefault();
+    dropzone.classList.remove('is-dragging');
+  });
+});
+
+dropzone.addEventListener('drop', event => {
+  ingestFiles(event.dataTransfer.files);
+});
+
+renderAll();
+</script>
+</body>
+</html>
