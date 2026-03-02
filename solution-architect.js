@@ -275,6 +275,52 @@
     };
   }
 
+  function exportDiagram(diagram, options) {
+    const active = diagram && Array.isArray(diagram.nodes) ? diagram : loadDiagram();
+    const summary = summarizeDiagram(active);
+    const contextSummary = options && options.contextSummary ? options.contextSummary : null;
+
+    return {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      source: active.source || 'manual',
+      updatedAt: active.updatedAt || null,
+      summary: {
+        nodeCount: summary.nodeCount,
+        edgeCount: summary.edgeCount,
+        selectedModels: summary.selectedModels,
+        hotspots: summary.hotspots,
+      },
+      context: contextSummary,
+      selectedModels: Array.isArray(active.selectedModels) ? active.selectedModels : [],
+      agentNotes: Array.isArray(active.agentNotes) ? active.agentNotes : [],
+      nodes: active.nodes.map(node => ({
+        id: node.id,
+        componentId: node.componentId || null,
+        label: node.label,
+        icon: node.icon || null,
+        shape: node.shape || null,
+        nodeType: node.nodeType || null,
+        tags: Array.isArray(node.tags) ? node.tags : [],
+        position: {
+          x: node.x,
+          y: node.y,
+        },
+        size: {
+          width: node.width,
+          height: node.height,
+        },
+        metadata: node.metadata || {},
+      })),
+      edges: active.edges.map(edge => ({
+        id: edge.id,
+        from: edge.from,
+        to: edge.to,
+        label: edge.label || '',
+      })),
+    };
+  }
+
   function getArchitectureGuidance(diagram, frontierNode) {
     const active = diagram && Array.isArray(diagram.nodes) ? diagram : loadDiagram();
     if (!frontierNode || !frontierFocus[frontierNode.id] || !active.nodes.length) return [];
@@ -331,6 +377,7 @@
     createEmptyDiagram,
     createNode,
     generateSuggestedDesign,
+    exportDiagram,
     getArchitectureGuidance,
     loadDiagram,
     modelCatalog: clone(modelCatalog),

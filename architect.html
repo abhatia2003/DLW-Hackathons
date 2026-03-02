@@ -210,6 +210,34 @@ button, input { font: inherit; }
   gap: 8px;
 }
 
+.export-panel {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255,255,255,0.03);
+  padding: 12px;
+}
+
+.export-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.export-preview {
+  width: 100%;
+  min-height: 180px;
+  border-radius: 14px;
+  border: 1px solid rgba(99, 121, 153, 0.22);
+  background: rgba(3, 9, 18, 0.72);
+  color: #bfefff;
+  padding: 12px;
+  font-size: 10px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
 .canvas-shell {
   padding: 14px;
 }
@@ -459,6 +487,7 @@ button, input { font: inherit; }
         <div class="canvas-actions">
           <button class="btn" id="link-mode-btn" type="button">Link Mode</button>
           <button class="btn" id="auto-layout-btn" type="button">Auto Arrange</button>
+          <button class="btn" id="export-json-btn" type="button">Export JSON</button>
           <button class="btn" id="clear-board-btn" type="button">Clear Board</button>
         </div>
       </div>
@@ -512,6 +541,20 @@ button, input { font: inherit; }
         </div>
 
         <div class="stack">
+          <div class="section-title" style="font-size:16px;">Architecture Export</div>
+          <div class="export-panel">
+            <div class="export-meta">
+              <div class="small-copy">Download or copy a machine-parseable snapshot of the full architecture diagram for downstream agents.</div>
+              <div class="inline-actions">
+                <button class="btn" id="copy-json-btn" type="button">Copy JSON</button>
+                <button class="btn" id="download-json-btn" type="button">Download</button>
+              </div>
+            </div>
+            <textarea id="export-preview" class="export-preview" readonly spellcheck="false"></textarea>
+          </div>
+        </div>
+
+        <div class="stack">
           <div class="section-title" style="font-size:16px;">Selected Node</div>
           <div id="inspector-panel" class="inspector empty-state">Click a component to rename or remove it.</div>
         </div>
@@ -555,6 +598,37 @@ const inspectorPanel = document.getElementById('inspector-panel');
 const noteList = document.getElementById('note-list');
 const stepList = document.getElementById('step-list');
 const linkModeButton = document.getElementById('link-mode-btn');
+const exportPreview = document.getElementById('export-preview');
+
+function contextSummaryPayload() {
+  const summary = contextStore.summarizeContext(context);
+  return {
+    docCount: summary.docCount,
+    chunkCount: summary.chunkCount,
+    themes: summary.themes,
+    updatedAt: summary.updatedAt,
+    docs: (context.docs || []).map(doc => ({
+      id: doc.id || null,
+      name: doc.name || null,
+      kind: doc.kind || null,
+      chunkCount: doc.chunkCount || 0,
+    })),
+  };
+}
+
+function exportedArchitectureJson() {
+  return JSON.stringify(
+    architectStore.exportDiagram(diagram, {
+      contextSummary: contextSummaryPayload(),
+    }),
+    null,
+    2
+  );
+}
+
+function renderExportPreview() {
+  exportPreview.value = exportedArchitectureJson();
+}
 
 function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, char => (
@@ -823,6 +897,7 @@ function renderAll() {
   renderStats();
   renderEdges();
   renderNodes();
+  renderExportPreview();
   renderSuggestion();
   renderInspector();
   renderAgentNotes();
@@ -907,6 +982,31 @@ document.getElementById('clear-board-btn').addEventListener('click', () => {
   renderAll();
 });
 document.getElementById('auto-layout-btn').addEventListener('click', autoArrange);
+document.getElementById('export-json-btn').addEventListener('click', () => {
+  exportPreview.focus();
+  exportPreview.select();
+});
+document.getElementById('copy-json-btn').addEventListener('click', async () => {
+  const json = exportedArchitectureJson();
+  try {
+    await navigator.clipboard.writeText(json);
+  } catch (error) {
+    exportPreview.focus();
+    exportPreview.select();
+  }
+});
+document.getElementById('download-json-btn').addEventListener('click', () => {
+  const json = exportedArchitectureJson();
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `architecture-export-${Date.now()}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+});
 linkModeButton.addEventListener('click', () => {
   linkMode = !linkMode;
   pendingLinkFrom = null;
